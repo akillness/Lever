@@ -10,3 +10,4 @@ Each entry = one full jeo cycle (change → build → test → real-operation ve
 | 4 | Firestore adapter | real `FirestoreStorage` (firebase-admin, lazy import, env-gated) | build ✓ |
 | 5 | Storage hardening | deterministic tie-break in `InMemoryStorage.listDatasets` (bug found by test) | 24 tests ✓ |
 | 6 | Persist API | `POST /api/analyze {persist,name}` → `createStorage().saveDataset` returns `datasetId` | server: `datasetId=ds-1` |
+| 7 | Channel breakdown | `summarizeByChannel` (engine `byChannel`) + UI breakdown cards + 2 tests | build ✓ · 26 tests ✓ |

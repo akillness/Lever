@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { analyze } from "./engine";
-import { computeMetrics, safeDiv, median, signalConfidence } from "./metrics";
+import { computeMetrics, safeDiv, median, signalConfidence, summarizeByChannel } from "./metrics";
 import { parseCsv } from "./csv";
 import type { AdRow } from "./types";
 
@@ -40,6 +40,32 @@ describe("metrics", () => {
     expect(median([3, 1, 2])).toBe(2);
     expect(median([4, 1, 3, 2])).toBe(2.5);
     expect(median([])).toBe(0);
+  });
+});
+
+describe("summarizeByChannel", () => {
+  it("aggregates spend/revenue/profit/ROAS per channel and sorts by spend desc", () => {
+    const summary = summarizeByChannel([
+      row({ channel: "google", spend: 100, revenue: 250, conversions: 5 }),
+      row({ channel: "google", spend: 100, revenue: 150, conversions: 5 }),
+      row({ channel: "meta", spend: 400, revenue: 600, conversions: 5 }),
+    ]);
+    expect(summary.map((s) => s.channel)).toEqual(["meta", "google"]); // 400 > 200
+    const google = summary.find((s) => s.channel === "google")!;
+    expect(google.spend).toBe(200);
+    expect(google.revenue).toBe(400);
+    expect(google.profit).toBe(200);
+    expect(google.roas).toBe(2);
+    expect(google.entities).toBe(2);
+  });
+
+  it("analyze() exposes the per-channel breakdown", () => {
+    const { byChannel } = analyze([
+      row({ id: "g", channel: "google", spend: 1000, revenue: 2000, conversions: 50, clicks: 1000, impressions: 30000 }),
+      row({ id: "t", channel: "taboola", spend: 500, revenue: 200, conversions: 10, clicks: 400, impressions: 20000 }),
+    ]);
+    expect(byChannel).toHaveLength(2);
+    expect(byChannel[0].channel).toBe("google"); // higher spend first
   });
 });
 

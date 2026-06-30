@@ -58,7 +58,7 @@ export default function Home() {
     setError(null);
   }
 
-  const { totals, recommendations, reallocation } = result;
+  const { totals, recommendations, reallocation, byChannel } = result;
   const actionable = recommendations.filter((r) => r.action !== "KEEP");
 
   return (
@@ -113,6 +113,35 @@ export default function Home() {
         </div>
         <p className="w-full text-xs text-slate-500">Source: {source}</p>
         {error && <p className="w-full text-xs text-red-600">{error}</p>}
+      </section>
+
+      <section className="mb-6">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Channel breakdown
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {byChannel.map((c) => (
+            <div
+              key={c.channel}
+              className="rounded-xl border border-slate-200 bg-white p-3"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold uppercase text-slate-700">
+                  {c.channel}
+                </span>
+                <span
+                  className={`text-xs font-bold ${c.profit >= 0 ? "text-emerald-700" : "text-red-700"}`}
+                >
+                  {c.roas.toFixed(2)}x
+                </span>
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                {usd(c.spend)} spend · {usd(c.profit)} profit
+              </div>
+              <div className="text-xs text-slate-400">{c.entities} entities</div>
+            </div>
+          ))}
+        </div>
       </section>
 
       {reallocation && (

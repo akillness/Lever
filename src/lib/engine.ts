@@ -5,7 +5,13 @@ import type {
   PortfolioReallocation,
   Recommendation,
 } from "./types";
-import { channelMedianCtr, computeMetrics, round, signalConfidence } from "./metrics";
+import {
+  channelMedianCtr,
+  computeMetrics,
+  round,
+  signalConfidence,
+  summarizeByChannel,
+} from "./metrics";
 
 export const DEFAULT_CONFIG: EngineConfig = {
   targetRoas: 1.0,
@@ -157,6 +163,7 @@ export function analyze(
       roas: spend === 0 ? 0 : round(revenue / spend, 3),
       projectedImpactUsd,
     },
+    byChannel: summarizeByChannel(rows),
   };
 }
 

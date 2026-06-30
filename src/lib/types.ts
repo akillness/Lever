@@ -62,6 +62,15 @@ export interface PortfolioReallocation {
   rationale: string;
 }
 
+export interface ChannelSummary {
+  channel: Channel;
+  spend: number;
+  revenue: number;
+  profit: number;
+  roas: number;
+  entities: number;
+}
+
 export interface AnalysisResult {
   recommendations: Recommendation[];
   reallocation: PortfolioReallocation | null;
@@ -72,6 +81,7 @@ export interface AnalysisResult {
     roas: number;
     projectedImpactUsd: number;
   };
+  byChannel: ChannelSummary[];
 }
 
 /** Tunable engine configuration. Defaults are in `engine.ts`. */

@@ -1,4 +1,4 @@
-import type { AdRow, Channel, Metrics } from "./types";
+import type { AdRow, Channel, ChannelSummary, Metrics } from "./types";
 
 /** Safe divide: returns 0 when the denominator is 0 (avoids NaN/Infinity in the UI). */
 export function safeDiv(numerator: number, denominator: number): number {
@@ -67,4 +67,29 @@ export function channelMedianCtr(rows: AdRow[]): Record<Channel, number> {
     result[channel] = median(ctrs);
   }
   return result;
+}
+
+/** Aggregate spend/revenue/profit/ROAS per channel — the portfolio breakdown. */
+export function summarizeByChannel(rows: AdRow[]): ChannelSummary[] {
+  const acc = new Map<
+    Channel,
+    { spend: number; revenue: number; entities: number }
+  >();
+  for (const row of rows) {
+    const cur = acc.get(row.channel) ?? { spend: 0, revenue: 0, entities: 0 };
+    cur.spend += row.spend;
+    cur.revenue += row.revenue;
+    cur.entities += 1;
+    acc.set(row.channel, cur);
+  }
+  return [...acc.entries()]
+    .map(([channel, v]) => ({
+      channel,
+      spend: round(v.spend),
+      revenue: round(v.revenue),
+      profit: round(v.revenue - v.spend),
+      roas: round(safeDiv(v.revenue, v.spend), 3),
+      entities: v.entities,
+    }))
+    .sort((a, b) => b.spend - a.spend);
 }
