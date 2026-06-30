@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Fetcher } from "./types";
+import { FETCH_TIMEOUT_MS, type Fetcher, fetchWithTimeout } from "./types";
 import { googleConnector } from "./google";
 import { metaConnector } from "./meta";
 import { taboolaConnector } from "./taboola";
@@ -265,5 +265,45 @@ describe("connector registry", () => {
     });
     expect(meta).toHaveLength(1);
     expect(meta[0].id).toBe("c9");
+  });
+});
+
+
+describe("fetchWithTimeout", () => {
+  it("returns the response and threads an AbortSignal into the request", async () => {
+    let seenSignal: AbortSignal | undefined;
+    const fetcher: Fetcher = async (_url, init) => {
+      seenSignal = init?.signal ?? undefined;
+      return { ok: true, status: 200, json: async () => ({ ok: 1 }) };
+    };
+    const res = await fetchWithTimeout(fetcher, "https://x.test", {}, 50);
+    expect(res.ok).toBe(true);
+    expect(seenSignal).toBeInstanceOf(AbortSignal);
+    expect(seenSignal?.aborted).toBe(false);
+  });
+
+  it("aborts and throws a timeout error when the fetcher hangs", async () => {
+    const hangingFetcher: Fetcher = (_url, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () =>
+          reject(new Error("aborted by signal")),
+        );
+      });
+    await expect(
+      fetchWithTimeout(hangingFetcher, "https://slow.test", {}, 10),
+    ).rejects.toThrow(/timed out after 10ms: https:\/\/slow\.test/);
+  });
+
+  it("propagates a non-abort fetcher error unchanged", async () => {
+    const failing: Fetcher = async () => {
+      throw new Error("DNS failure");
+    };
+    await expect(
+      fetchWithTimeout(failing, "https://x.test", {}, 50),
+    ).rejects.toThrow(/DNS failure/);
+  });
+
+  it("defaults to a positive timeout budget", () => {
+    expect(FETCH_TIMEOUT_MS).toBeGreaterThan(0);
   });
 });

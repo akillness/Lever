@@ -75,3 +75,31 @@ export function hasFields(
     return typeof v === "string" ? v.length > 0 : v != null;
   });
 }
+
+/** Default per-request timeout (ms) for connector network calls. */
+export const FETCH_TIMEOUT_MS = 15_000;
+
+/**
+ * Run an injectable fetcher with an abort-based timeout so a hung platform API
+ * cannot stall the whole ingest run. Threads an AbortSignal into the request and
+ * converts an abort into a clear, channel-agnostic timeout error.
+ */
+export async function fetchWithTimeout(
+  fetcher: Fetcher,
+  url: string,
+  init: RequestInit = {},
+  timeoutMs = FETCH_TIMEOUT_MS,
+): Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetcher(url, { ...init, signal: controller.signal });
+  } catch (err) {
+    if (controller.signal.aborted) {
+      throw new Error(`request timed out after ${timeoutMs}ms: ${url}`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}

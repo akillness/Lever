@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -142,5 +142,40 @@ describe("vault selection", () => {
   it("honors LEVER_VAULT_PATH override", () => {
     process.env.LEVER_VAULT_PATH = "/tmp/custom/creds.json";
     expect(vaultPath()).toBe("/tmp/custom/creds.json");
+  });
+
+  it("warns in production when falling back to the in-memory vault", () => {
+    const savedEnv = process.env.NODE_ENV;
+    delete process.env.LEVER_SECRET_KEY;
+    process.env.NODE_ENV = "production";
+    resetVaultCache();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(getVault()).toBeInstanceOf(InMemoryCredentialVault);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0][0])).toMatch(/LEVER_SECRET_KEY/);
+    } finally {
+      warn.mockRestore();
+      if (savedEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = savedEnv;
+      resetVaultCache();
+    }
+  });
+
+  it("stays silent outside production when falling back", () => {
+    const savedEnv = process.env.NODE_ENV;
+    delete process.env.LEVER_SECRET_KEY;
+    process.env.NODE_ENV = "test";
+    resetVaultCache();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      getVault();
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+      if (savedEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = savedEnv;
+      resetVaultCache();
+    }
   });
 });

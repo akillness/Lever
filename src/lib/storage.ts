@@ -204,11 +204,12 @@ export function hasFirebaseConfig(): boolean {
 }
 
 /**
- * Selects the backing store: Firestore in production (when configured),
- * in-memory otherwise. The engine and UI depend only on `StorageAdapter`,
- * so this swap is invisible to business logic.
+ * Selects the backing store, preferring durability: Firestore when Firebase is
+ * configured, else a local JSON file when `LEVER_DB_PATH` is set, else an
+ * in-memory adapter. The engine and UI depend only on `StorageAdapter`, so this
+ * swap is invisible to business logic.
  *
- * Memoized per process so the in-memory adapter actually persists across
+ * Memoized per process so the in-memory/file adapters actually persist across
  * requests within a running server (Firestore is stateless either way).
  */
 let cached: StorageAdapter | null = null;

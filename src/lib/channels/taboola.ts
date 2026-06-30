@@ -3,6 +3,7 @@ import {
   type ChannelConnector,
   type DateRange,
   type Fetcher,
+  fetchWithTimeout,
   hasFields,
   num,
   objectRows,
@@ -68,7 +69,8 @@ export const taboolaConnector: ChannelConnector = {
       start_date: range.start,
       end_date: range.end,
     });
-    const res = await fetcher(
+    const res = await fetchWithTimeout(
+      fetcher,
       `https://backstage.taboola.com/backstage/api/1.0/${acct}/reports/campaign-summary/dimensions/campaign_breakdown?${params}`,
       { headers: { Authorization: `Bearer ${creds.accessToken}` } },
     );

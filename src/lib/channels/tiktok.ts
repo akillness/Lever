@@ -3,6 +3,7 @@ import {
   type ChannelConnector,
   type DateRange,
   type Fetcher,
+  fetchWithTimeout,
   hasFields,
   num,
   objectRows,
@@ -93,7 +94,8 @@ export const tiktokConnector: ChannelConnector = {
       start_date: range.start,
       end_date: range.end,
     });
-    const res = await fetcher(
+    const res = await fetchWithTimeout(
+      fetcher,
       `https://business-api.tiktok.com/open_api/v1.3/report/integrated/get/?${params}`,
       { headers: { "Access-Token": String(creds.accessToken) } },
     );

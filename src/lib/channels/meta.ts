@@ -3,6 +3,7 @@ import {
   type ChannelConnector,
   type DateRange,
   type Fetcher,
+  fetchWithTimeout,
   hasFields,
   num,
   objectRows,
@@ -88,7 +89,8 @@ export const metaConnector: ChannelConnector = {
       time_range: JSON.stringify({ since: range.start, until: range.end }),
       access_token: String(creds.accessToken),
     });
-    const res = await fetcher(
+    const res = await fetchWithTimeout(
+      fetcher,
       `https://graph.facebook.com/v21.0/act_${acct}/insights?${params}`,
     );
     if (!res.ok) throw new Error(`meta marketing API error ${res.status}`);

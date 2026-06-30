@@ -196,12 +196,26 @@ let cached: CredentialVault | null = null;
 /**
  * Select the vault: file-backed when a master secret is configured, in-memory
  * otherwise. Memoized per process.
+ *
+ * In production without `LEVER_SECRET_KEY` we fall back to the in-memory vault
+ * but emit a loud warning: its key is per-process, so stored credentials neither
+ * persist across restarts nor across serverless instances. Set the secret to
+ * operate the durable file vault.
  */
 export function getVault(): CredentialVault {
   if (!cached) {
-    cached = hasVaultSecret()
-      ? new FileCredentialVault(vaultPath())
-      : new InMemoryCredentialVault();
+    if (hasVaultSecret()) {
+      cached = new FileCredentialVault(vaultPath());
+    } else {
+      if (process.env.NODE_ENV === "production") {
+        console.warn(
+          "[lever] LEVER_SECRET_KEY is not set in production: using an ephemeral " +
+            "in-memory credential vault. Stored credentials will NOT persist across " +
+            "restarts or serverless instances. Set LEVER_SECRET_KEY for durable storage.",
+        );
+      }
+      cached = new InMemoryCredentialVault();
+    }
   }
   return cached;
 }
