@@ -11,16 +11,28 @@ export function round(value: number, decimals = 2): number {
   return Math.round(value * f) / f;
 }
 
+/**
+ * Revenue the engine should optimize against. When a first-party lifetime value
+ * per conversion is supplied, downstream value (`conversions × ltvPerConversion`)
+ * is the authoritative number; otherwise the immediately-attributed revenue is used.
+ */
+export function effectiveRevenue(row: AdRow): number {
+  return row.ltvPerConversion != null
+    ? round(row.conversions * row.ltvPerConversion)
+    : row.revenue;
+}
+
 /** Derive performance metrics for a single ad row. Pure, no side effects. */
 export function computeMetrics(row: AdRow): Metrics {
+  const revenue = effectiveRevenue(row);
   return {
     cpa: round(safeDiv(row.spend, row.conversions)),
-    epc: round(safeDiv(row.revenue, row.clicks)),
-    roas: round(safeDiv(row.revenue, row.spend), 3),
+    epc: round(safeDiv(revenue, row.clicks)),
+    roas: round(safeDiv(revenue, row.spend), 3),
     cvr: round(safeDiv(row.conversions, row.clicks), 4),
     ctr: round(safeDiv(row.clicks, row.impressions), 4),
     cpc: round(safeDiv(row.spend, row.clicks)),
-    profit: round(row.revenue - row.spend),
+    profit: round(revenue - row.spend),
   };
 }
 
@@ -78,7 +90,7 @@ export function summarizeByChannel(rows: AdRow[]): ChannelSummary[] {
   for (const row of rows) {
     const cur = acc.get(row.channel) ?? { spend: 0, revenue: 0, entities: 0 };
     cur.spend += row.spend;
-    cur.revenue += row.revenue;
+    cur.revenue += effectiveRevenue(row);
     cur.entities += 1;
     acc.set(row.channel, cur);
   }

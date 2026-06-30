@@ -13,6 +13,7 @@ const FIELD_ALIASES: Record<keyof AdRow, string[]> = {
   impressions: ["impressions", "impr", "imps"],
   date: ["date", "day", "reporting_date"],
   priorCtr: ["prior_ctr", "previous_ctr", "ctr_prev", "last_ctr"],
+  ltvPerConversion: ["ltv", "ltv_per_conversion", "value_per_conversion", "payout_ltv"],
 };
 
 function normalizeChannel(value: string): Channel {
@@ -138,6 +139,7 @@ export function parseCsv(text: string): AdRow[] {
       impressions: toNumber(get("impressions")),
       date: get("date") || undefined,
       priorCtr: toOptionalRate(get("priorCtr")),
+      ltvPerConversion: toOptionalRate(get("ltvPerConversion")),
     });
   }
   return rows;
@@ -176,6 +178,7 @@ export function sanitizeAdRows(input: unknown): AdRow[] {
       impressions: nonNeg(r.impressions),
       date: typeof r.date === "string" ? r.date : undefined,
       priorCtr: optRate(r.priorCtr),
+      ltvPerConversion: optRate(r.ltvPerConversion),
     });
   });
   return rows;

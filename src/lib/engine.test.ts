@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { analyze, accountHealth } from "./engine";
-import { computeMetrics, safeDiv, median, signalConfidence, summarizeByChannel } from "./metrics";
+import { computeMetrics, safeDiv, median, signalConfidence, summarizeByChannel, effectiveRevenue } from "./metrics";
 import { parseCsv, sanitizeAdRows } from "./csv";
 import type { AdRow } from "./types";
 
@@ -371,5 +371,39 @@ describe("csv prior_ctr ingest", () => {
     expect(parseCsv("campaign,platform,cost\nX,Meta,500")[0].priorCtr).toBeUndefined();
     const [z] = parseCsv("campaign,platform,cost,prior_ctr\nY,Meta,500,0");
     expect(z.priorCtr).toBeUndefined();
+  });
+});
+describe("LTV-weighted revenue", () => {
+  it("effectiveRevenue uses conversions × ltvPerConversion when provided, else immediate revenue", () => {
+    expect(effectiveRevenue(row({ revenue: 1400, conversions: 40, ltvPerConversion: 95 }))).toBe(3800);
+    expect(effectiveRevenue(row({ revenue: 1400, conversions: 40 }))).toBe(1400);
+  });
+
+  it("computeMetrics reflects LTV in roas and profit", () => {
+    const m = computeMetrics(row({ spend: 2000, revenue: 1400, conversions: 40, clicks: 2600, ltvPerConversion: 95 }));
+    expect(m.roas).toBe(1.9); // 3800 / 2000
+    expect(m.profit).toBe(1800); // 3800 - 2000
+  });
+
+  it("rescues a creative that loses on immediate revenue but wins on first-party LTV", () => {
+    const losing = row({ id: "g3", spend: 2000, revenue: 1400, conversions: 40, clicks: 2600, impressions: 88000 });
+    expect(analyze([losing]).recommendations[0].action).toBe("PAUSE");
+    const rescued = { ...losing, ltvPerConversion: 95 };
+    expect(analyze([rescued]).recommendations[0].action).toBe("SCALE");
+  });
+
+  it("flows LTV into portfolio totals and account health", () => {
+    const r = analyze([
+      row({ id: "g3", spend: 2000, revenue: 1400, conversions: 40, clicks: 2600, impressions: 88000, ltvPerConversion: 95 }),
+    ]);
+    expect(r.totals.revenue).toBe(3800);
+    expect(r.totals.roas).toBe(1.9);
+  });
+
+  it("csv ingests an ltv_per_conversion column as a positive rate", () => {
+    const csv = "campaign,platform,cost,conversion_value,conv,ltv_per_conversion\nQuote,Google,2000,1400,40,95";
+    const [r] = parseCsv(csv);
+    expect(r.ltvPerConversion).toBe(95);
+    expect(parseCsv("campaign,platform,cost\nX,Google,500")[0].ltvPerConversion).toBeUndefined();
   });
 });

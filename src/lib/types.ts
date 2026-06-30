@@ -16,6 +16,12 @@ export interface AdRow {
   impressions: number;
   /** This entity's CTR in the prior reporting period, for trend-fatigue detection (optional). */
   priorCtr?: number;
+  /**
+   * Known first-party lifetime value per conversion (optional). When present,
+   * the engine values revenue as `conversions × ltvPerConversion` instead of the
+   * immediately-attributed `revenue`, so profit decisions reflect downstream value.
+   */
+  ltvPerConversion?: number;
   /** ISO date of the reporting period (optional). */
   date?: string;
 }

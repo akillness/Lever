@@ -130,12 +130,26 @@ export const SAMPLE_DATA: AdRow[] = [
     impressions: 96000,
     date: "2026-06-01",
   },
+  // LTV RESCUE: immediate revenue says "loser", but a known $95 first-party LTV
+  // per conversion makes it a clear winner — the engine optimizes on true value.
+  {
+    id: "g-3",
+    name: "Google · Insurance Quote — Broad",
+    channel: "google",
+    spend: 2000,
+    revenue: 1400,
+    conversions: 40,
+    clicks: 2600,
+    impressions: 88000,
+    ltvPerConversion: 95,
+    date: "2026-06-01",
+  },
 ];
 
 /** CSV string of the sample dataset, used to demo the upload path. */
 export function sampleCsv(): string {
   const header =
-    "id,name,channel,spend,revenue,conversions,clicks,impressions,date,prior_ctr";
+    "id,name,channel,spend,revenue,conversions,clicks,impressions,date,prior_ctr,ltv_per_conversion";
   const lines = SAMPLE_DATA.map((r) =>
     [
       r.id,
@@ -148,6 +162,7 @@ export function sampleCsv(): string {
       r.impressions,
       r.date ?? "",
       r.priorCtr ?? "",
+      r.ltvPerConversion ?? "",
     ].join(","),
   );
   return [header, ...lines].join("\n");

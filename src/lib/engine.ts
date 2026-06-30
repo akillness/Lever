@@ -8,6 +8,7 @@ import type {
 import {
   channelMedianCtr,
   computeMetrics,
+  effectiveRevenue,
   round,
   signalConfidence,
   summarizeByChannel,
@@ -186,7 +187,7 @@ export function analyze(
   const reallocation = buildReallocation(recommendations, byId, cfg);
 
   const spend = round(rows.reduce((s, r) => s + r.spend, 0));
-  const revenue = round(rows.reduce((s, r) => s + r.revenue, 0));
+  const revenue = round(rows.reduce((s, r) => s + effectiveRevenue(r), 0));
   const profit = round(revenue - spend);
   // Headline impact = the ranked recommendations only. Reallocation is an
   // alternative framing of redeploying the SAME freed budget, so it is reported
@@ -222,7 +223,7 @@ export function accountHealth(
   cfg: EngineConfig,
 ): number {
   const spend = rows.reduce((s, r) => s + r.spend, 0);
-  const revenue = rows.reduce((s, r) => s + r.revenue, 0);
+  const revenue = rows.reduce((s, r) => s + effectiveRevenue(r), 0);
   if (spend === 0) return 0;
 
   const blendedRoas = revenue / spend;
