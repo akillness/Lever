@@ -43,7 +43,6 @@ export interface Recommendation {
   /** Higher = more urgent. Used as a tie-break behind projected impact. */
   severity: number;
   /** Plain-English, formula-backed explanation. */
-  /** Plain-English, formula-backed explanation. */
   rationale: string;
   /** Confidence in the recommendation, 0..1, from spend/conversion signal strength. */
   confidence: number;

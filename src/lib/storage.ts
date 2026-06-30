@@ -19,7 +19,6 @@ export interface StorageAdapter {
 }
 
 /** Zero-config implementation used for the runnable demo. */
-/** Zero-config implementation used for the runnable demo. */
 export class InMemoryStorage implements StorageAdapter {
   private store = new Map<string, StoredDataset>();
   private seq = 0;
