@@ -125,7 +125,7 @@ export default function Home() {
           value={usd(totals.profit)}
           tone={totals.profit >= 0 ? "good" : "bad"}
         />
-        <Kpi label="Blended ROAS" value={`${totals.roas.toFixed(2)}x`} />
+        <Kpi label="Blended ROAS" value={`${totals.roas.toFixed(2)}×`} />
         <Kpi
           label="Account health"
           value={`${result.accountHealth}/100`}
@@ -202,7 +202,7 @@ export default function Home() {
             min={0.5}
             max={3}
             step={0.05}
-            format={(v) => `${v.toFixed(2)}x`}
+            format={(v) => `${v.toFixed(2)}×`}
             onChange={(targetRoas) => setConfig((c) => ({ ...c, targetRoas }))}
           />
           <Slider
@@ -247,7 +247,7 @@ export default function Home() {
                 <span
                   className={`text-xs font-bold tabular-nums ${c.profit >= 0 ? "text-emerald-700" : "text-red-700"}`}
                 >
-                  {c.roas.toFixed(2)}x
+                  {c.roas.toFixed(2)}×
                 </span>
               </div>
               <div className="mt-1 text-xs tabular-nums text-slate-500">
@@ -317,7 +317,7 @@ export default function Home() {
               </div>
               <p className="mt-2 text-sm text-slate-600">{r.rationale}</p>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums text-slate-500">
-                <span>ROAS {r.metrics.roas}x</span>
+                <span>ROAS {r.metrics.roas}×</span>
                 <span>CPA {usd(r.metrics.cpa)}</span>
                 <span>EPC {usd(r.metrics.epc)}</span>
                 <span>CTR {(r.metrics.ctr * 100).toFixed(2)}%</span>
@@ -390,6 +390,8 @@ function Slider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
+        aria-label={label}
+        aria-valuetext={format(value)}
         className="mt-1 w-full accent-slate-900"
       />
     </label>
