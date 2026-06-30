@@ -7,11 +7,17 @@
 **Turn four fragmented ad dashboards into one ranked "do this next" list — every move shown with the math and a projected dollar impact.**
 
 [![Build](https://img.shields.io/badge/build-passing-brightgreen)](#-verify-it-yourself)
-[![Tests](https://img.shields.io/badge/tests-77%20passing-brightgreen)](src/lib/engine.test.ts)
+[![Tests](https://img.shields.io/badge/tests-81%20passing-brightgreen)](src/lib/engine.test.ts)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Deploy](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://vercel.com)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Engine](https://img.shields.io/badge/engine-deterministic%20%C2%B7%20explainable-8957e5)](src/lib/engine.ts)
+[![Objective](https://img.shields.io/badge/objective-profit%20vs%20target-f5b301)](#why-it-wins)
+
+<br/>
+
+<img src="docs/lever-flow.svg" alt="Lever pipeline — four ad channels are normalized into metrics, scored by a deterministic profit engine, and emitted as dollar-ranked actions" width="900"/>
 
 </div>
 
@@ -76,7 +82,7 @@ curl -X POST http://localhost:3000/api/analyze \
 ## 🔬 Verify it yourself
 
 ```bash
-npm test             # 77 passing — engine rules, metrics, confidence, storage, CSV, export, API route
+npm test             # 81 passing — engine rules, metrics, confidence, storage, CSV, export, API route
 npm run build        # production build + full TypeScript check
 ```
 

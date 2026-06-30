@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 470" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" role="img" aria-label="Lever pipeline: four ad channels normalized into metrics, scored by a deterministic profit engine, and emitted as dollar-ranked actions.">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0c1226"/>
+      <stop offset="1" stop-color="#151d38"/>
+    </linearGradient>
+    <linearGradient id="engine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f2a52"/>
+      <stop offset="1" stop-color="#16204a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f5b301"/>
+      <stop offset="1" stop-color="#ffd45e"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#6f7bb0"/>
+    </marker>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect width="1240" height="470" rx="20" fill="url(#bg)"/>
+
+  <!-- Header -->
+  <text x="40" y="56" fill="#ffffff" font-size="30" font-weight="700">⚡ Lever</text>
+  <text x="158" y="56" fill="#f5b301" font-size="20" font-weight="600">— the media buyer's profit copilot</text>
+  <text x="40" y="86" fill="#9aa6d6" font-size="15">Four fragmented dashboards → one ranked “do this next” list, every move shown with the math &amp; a projected $ impact.</text>
+
+  <!-- Stage labels -->
+  <g fill="#6f7bb0" font-size="12" font-weight="700" letter-spacing="1.5">
+    <text x="120"  y="138" text-anchor="middle">INGEST</text>
+    <text x="370"  y="138" text-anchor="middle">NORMALIZE</text>
+    <text x="620"  y="138" text-anchor="middle">METRICS</text>
+    <text x="870"  y="138" text-anchor="middle">PROFIT ENGINE</text>
+    <text x="1120" y="138" text-anchor="middle">RANKED ACTIONS</text>
+  </g>
+
+  <!-- Arrows -->
+  <g stroke="#6f7bb0" stroke-width="2.5" fill="none">
+    <line x1="222" y1="240" x2="266" y2="240" marker-end="url(#arrow)"/>
+    <line x1="472" y1="240" x2="516" y2="240" marker-end="url(#arrow)"/>
+    <line x1="722" y1="240" x2="766" y2="240" marker-end="url(#arrow)"/>
+    <line x1="972" y1="240" x2="1016" y2="240" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- Stage 1: channels -->
+  <g filter="url(#soft)">
+    <rect x="20" y="155" width="200" height="170" rx="14" fill="#172046" stroke="#2c3a72"/>
+  </g>
+  <g font-size="14" font-weight="600">
+    <rect x="40" y="173" width="160" height="30" rx="8" fill="#22305f"/><text x="120" y="193" fill="#e7ecff" text-anchor="middle">Google</text>
+    <rect x="40" y="209" width="160" height="30" rx="8" fill="#22305f"/><text x="120" y="229" fill="#e7ecff" text-anchor="middle">Meta</text>
+    <rect x="40" y="245" width="160" height="30" rx="8" fill="#22305f"/><text x="120" y="265" fill="#e7ecff" text-anchor="middle">Taboola</text>
+    <rect x="40" y="281" width="160" height="30" rx="8" fill="#22305f"/><text x="120" y="301" fill="#e7ecff" text-anchor="middle">TikTok</text>
+  </g>
+
+  <!-- Stage 2: normalize -->
+  <g filter="url(#soft)">
+    <rect x="270" y="155" width="200" height="170" rx="14" fill="#172046" stroke="#2c3a72"/>
+  </g>
+  <text x="370" y="225" fill="#e7ecff" font-size="15" font-weight="600" text-anchor="middle">Schema-tolerant</text>
+  <text x="370" y="248" fill="#e7ecff" font-size="15" font-weight="600" text-anchor="middle">CSV → AdRow[]</text>
+  <text x="370" y="275" fill="#9aa6d6" font-size="12" text-anchor="middle">cost·spend · revenue</text>
+  <text x="370" y="291" fill="#9aa6d6" font-size="12" text-anchor="middle">platform · channel · …</text>
+
+  <!-- Stage 3: metrics -->
+  <g filter="url(#soft)">
+    <rect x="520" y="155" width="200" height="170" rx="14" fill="#172046" stroke="#2c3a72"/>
+  </g>
+  <g font-size="14" font-weight="700" text-anchor="middle">
+    <rect x="540" y="178" width="74" height="30" rx="8" fill="#22305f"/><text x="577" y="198" fill="#ffd45e">CPA</text>
+    <rect x="626" y="178" width="74" height="30" rx="8" fill="#22305f"/><text x="663" y="198" fill="#ffd45e">EPC</text>
+    <rect x="540" y="214" width="74" height="30" rx="8" fill="#22305f"/><text x="577" y="234" fill="#ffd45e">ROAS</text>
+    <rect x="626" y="214" width="74" height="30" rx="8" fill="#22305f"/><text x="663" y="234" fill="#ffd45e">Profit</text>
+  </g>
+  <text x="620" y="278" fill="#9aa6d6" font-size="12" text-anchor="middle">+ LTV-weighted value</text>
+  <text x="620" y="296" fill="#9aa6d6" font-size="12" text-anchor="middle">+ confidence score</text>
+
+  <!-- Stage 4: engine -->
+  <g filter="url(#soft)">
+    <rect x="770" y="155" width="200" height="170" rx="14" fill="url(#engine)" stroke="#f5b301" stroke-opacity="0.5"/>
+  </g>
+  <text x="870" y="205" fill="#ffffff" font-size="16" font-weight="700" text-anchor="middle">Deterministic</text>
+  <text x="870" y="226" fill="#ffffff" font-size="16" font-weight="700" text-anchor="middle">profit-objective</text>
+  <text x="870" y="247" fill="#ffffff" font-size="16" font-weight="700" text-anchor="middle">rules</text>
+  <text x="870" y="276" fill="#f5b301" font-size="12.5" font-weight="600" text-anchor="middle">81 unit tests · explainable</text>
+  <text x="870" y="294" fill="#9aa6d6" font-size="12" text-anchor="middle">target-aware · leak-aware</text>
+
+  <!-- Stage 5: actions -->
+  <g filter="url(#soft)">
+    <rect x="1020" y="155" width="200" height="170" rx="14" fill="#172046" stroke="#2c3a72"/>
+  </g>
+  <g font-size="13" font-weight="700" text-anchor="middle">
+    <rect x="1038" y="170" width="164" height="26" rx="7" fill="#3a1620"/><text x="1120" y="188" fill="#ff8d8d">⏸ Pause</text>
+    <rect x="1038" y="200" width="164" height="26" rx="7" fill="#15321f"/><text x="1120" y="218" fill="#86f0a8">📈 Scale</text>
+    <rect x="1038" y="230" width="164" height="26" rx="7" fill="#33270f"/><text x="1120" y="248" fill="#ffd45e">🎨 Refresh</text>
+    <rect x="1038" y="260" width="164" height="26" rx="7" fill="#1d2747"/><text x="1120" y="278" fill="#c2cbf2">🔍 Review</text>
+    <rect x="1038" y="290" width="164" height="26" rx="7" fill="#1d2747"/><text x="1120" y="308" fill="#c2cbf2">🔁 Reallocate</text>
+  </g>
+
+  <!-- Footer stat band -->
+  <g filter="url(#soft)">
+    <rect x="20" y="355" width="1200" height="86" rx="14" fill="#101732" stroke="#2c3a72"/>
+  </g>
+  <g text-anchor="middle">
+    <text x="170" y="392" fill="url(#accent)" font-size="30" font-weight="800">$8,269</text>
+    <text x="170" y="416" fill="#9aa6d6" font-size="13">recommended impact</text>
+
+    <text x="470" y="392" fill="#86f0a8" font-size="30" font-weight="800">$1,008</text>
+    <text x="470" y="416" fill="#9aa6d6" font-size="13">budget reallocation</text>
+
+    <text x="770" y="392" fill="#ffffff" font-size="30" font-weight="800">80<tspan font-size="18" fill="#9aa6d6">/100</tspan></text>
+    <text x="770" y="416" fill="#9aa6d6" font-size="13">account health</text>
+
+    <text x="1070" y="392" fill="#ffd45e" font-size="30" font-weight="800">4 → 1</text>
+    <text x="1070" y="416" fill="#9aa6d6" font-size="13">dashboards → decision</text>
+  </g>
+  <line x1="320" y1="372" x2="320" y2="424" stroke="#2c3a72"/>
+  <line x1="620" y1="372" x2="620" y2="424" stroke="#2c3a72"/>
+  <line x1="920" y1="372" x2="920" y2="424" stroke="#2c3a72"/>
+</svg>
