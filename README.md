@@ -7,7 +7,7 @@
 **Turn four fragmented ad dashboards into one ranked "do this next" list — every move shown with the math and a projected dollar impact.**
 
 [![Build](https://img.shields.io/badge/build-passing-brightgreen)](#-verify-it-yourself)
-[![Tests](https://img.shields.io/badge/tests-160%20passing-brightgreen)](src/lib/engine.test.ts)
+[![Tests](https://img.shields.io/badge/tests-167%20passing-brightgreen)](src/lib/engine.test.ts)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Deploy](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://lever-sepia.vercel.app)
@@ -53,7 +53,7 @@ Lever is the **decision brain** that sits on top of your spend:
 - 🧭 **Scores the account** with a single 0–100 **health** number and a **per-channel breakdown** for the exec view.
 - 🎛️ **What-if simulator** — tune the engine's thresholds live and watch the action feed re-rank.
 - 📤 **Exports** the ranked actions to CSV for ad-ops, and **persists** datasets (in-memory → Firestore).
-- 🔌 **Connects live data** — pull real campaign reports straight from **Google Ads, Meta, Taboola, and TikTok** free-tier APIs; API keys are sealed in an **AES-256-GCM encrypted vault** (decrypted only in-process) and results auto-**sync to a Google Sheet** (newest-first) via Apps Script.
+- 🔌 **Connects live data** — pull real campaign reports straight from **Google Ads, Meta, Taboola, and TikTok** free-tier APIs; API keys are sealed in an **AES-256-GCM encrypted vault** (decrypted only in-process) and results auto-**sync to a Google Sheet** (newest-first) via Apps Script. Every network seam is **timeout-bounded with retrying backoff** (429/5xx-aware), so a free-tier rate-limit blip never fails an ingest run.
 - 🤝 **Argues for itself**: every recommendation shows the math, so a buyer can act on it *and defend it*.
 
 > It doesn't optimize vanity ROAS. It optimizes **profit against target** — the affiliate north-star.
@@ -67,7 +67,7 @@ Lever is the **decision brain** that sits on top of your spend:
 | Black-box "AI suggestions" | **Deterministic + explainable** — every move shows its formula |
 
 The core is an **explainable, profit-objective recommendation engine**: pure, deterministic,
-160 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
+167 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
 
 ## Quickstart
 
@@ -90,7 +90,7 @@ curl -X POST http://localhost:3000/api/analyze \
 ## 🔬 Verify it yourself
 
 ```bash
-npm test             # 160 passing — engine, metrics, confidence, storage, CSV, export, secrets vault, channel connectors, Sheets sync, ingest pipeline, API routes
+npm test             # 167 passing — engine, metrics, confidence, storage, CSV, export, secrets vault, channel connectors, Sheets sync, ingest pipeline, API routes
 npm run build        # production build + full TypeScript check
 ```
 

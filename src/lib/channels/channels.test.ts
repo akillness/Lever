@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { FETCH_TIMEOUT_MS, type Fetcher, fetchWithTimeout } from "./types";
+import {
+  FETCH_TIMEOUT_MS,
+  MAX_FETCH_RETRIES,
+  RETRYABLE_STATUS,
+  type Fetcher,
+  fetchWithRetry,
+  fetchWithTimeout,
+} from "./types";
 import { googleConnector } from "./google";
 import { metaConnector } from "./meta";
 import { taboolaConnector } from "./taboola";
@@ -305,5 +312,104 @@ describe("fetchWithTimeout", () => {
 
   it("defaults to a positive timeout budget", () => {
     expect(FETCH_TIMEOUT_MS).toBeGreaterThan(0);
+  });
+});
+
+/** A fetcher that walks a script of steps (status / thrown error) and records calls. */
+function sequenceFetcher(
+  steps: Array<{ status?: number; throwErr?: string; body?: unknown }>,
+) {
+  const calls: { url: string; init?: RequestInit }[] = [];
+  let i = 0;
+  const fetcher: Fetcher = async (url, init) => {
+    calls.push({ url, init });
+    const step = steps[Math.min(i, steps.length - 1)];
+    i += 1;
+    if (step.throwErr) throw new Error(step.throwErr);
+    const status = step.status ?? 200;
+    return { ok: status < 400, status, json: async () => step.body ?? {} };
+  };
+  return { fetcher, calls };
+}
+
+describe("fetchWithRetry", () => {
+  const recordSleep = () => {
+    const delays: number[] = [];
+    return { delays, sleep: async (ms: number) => void delays.push(ms) };
+  };
+
+  it("retries a 429, then returns the first success", async () => {
+    const { fetcher, calls } = sequenceFetcher([
+      { status: 429 },
+      { status: 200, body: { ok: 1 } },
+    ]);
+    const { delays, sleep } = recordSleep();
+    const res = await fetchWithRetry(fetcher, "https://x.test", {}, {
+      baseDelayMs: 10,
+      sleep,
+    });
+    expect(res.status).toBe(200);
+    expect(calls).toHaveLength(2);
+    expect(delays).toEqual([10]); // one backoff before the retry
+  });
+
+  it("retries on transient 5xx with exponential backoff, then gives up returning the last response", async () => {
+    const { fetcher, calls } = sequenceFetcher([{ status: 503 }]);
+    const { delays, sleep } = recordSleep();
+    const res = await fetchWithRetry(fetcher, "https://x.test", {}, {
+      retries: 2,
+      baseDelayMs: 10,
+      sleep,
+    });
+    expect(res.status).toBe(503); // exhausted: last attempt's response stands
+    expect(calls).toHaveLength(3); // 1 + 2 retries
+    expect(delays).toEqual([10, 20]); // 10*2^0, 10*2^1
+  });
+
+  it("does NOT retry a non-retryable 4xx (auth) error", async () => {
+    const { fetcher, calls } = sequenceFetcher([
+      { status: 401 },
+      { status: 200 },
+    ]);
+    const { delays, sleep } = recordSleep();
+    const res = await fetchWithRetry(fetcher, "https://x.test", {}, { sleep });
+    expect(res.status).toBe(401);
+    expect(calls).toHaveLength(1);
+    expect(delays).toEqual([]);
+  });
+
+  it("retries a thrown network error, then succeeds", async () => {
+    const { fetcher, calls } = sequenceFetcher([
+      { throwErr: "ECONNRESET" },
+      { status: 200, body: { ok: 1 } },
+    ]);
+    const { delays, sleep } = recordSleep();
+    const res = await fetchWithRetry(fetcher, "https://x.test", {}, {
+      baseDelayMs: 5,
+      sleep,
+    });
+    expect(res.status).toBe(200);
+    expect(calls).toHaveLength(2);
+    expect(delays).toEqual([5]);
+  });
+
+  it("rethrows after exhausting retries on a persistent thrown error", async () => {
+    const { fetcher, calls } = sequenceFetcher([{ throwErr: "DNS failure" }]);
+    const { sleep } = recordSleep();
+    await expect(
+      fetchWithRetry(fetcher, "https://x.test", {}, {
+        retries: 1,
+        baseDelayMs: 1,
+        sleep,
+      }),
+    ).rejects.toThrow(/DNS failure/);
+    expect(calls).toHaveLength(2); // 1 + 1 retry
+  });
+
+  it("exposes a sane retry budget and retryable status set", () => {
+    expect(MAX_FETCH_RETRIES).toBeGreaterThanOrEqual(1);
+    expect(RETRYABLE_STATUS.has(429)).toBe(true);
+    expect(RETRYABLE_STATUS.has(503)).toBe(true);
+    expect(RETRYABLE_STATUS.has(400)).toBe(false);
   });
 });

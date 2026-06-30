@@ -81,7 +81,7 @@ function doPost(e) {
   }
 
   var expected = props_().getProperty("SHEET_TOKEN");
-  if (expected && body.token !== expected) {
+  if (expected && !safeEqual_(String(body.token || ""), expected)) {
     return json_({ ok: false, error: "unauthorized" });
   }
   if (!body.header || !body.rows) {
@@ -194,4 +194,22 @@ function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
     ContentService.MimeType.JSON
   );
+}
+
+/**
+ * Comparison whose cost does not depend on the attacker-controlled input, so the
+ * public web app's token check cannot leak the secret's length or a matching
+ * prefix through response timing. `expected` is the server-held secret: we fold
+ * the length difference into the accumulator and always scan exactly
+ * `expected.length` chars (never the candidate's length), so a longer/shorter
+ * guess can't change the loop's iteration count. (V8 offers no true constant-time
+ * string primitive; this neutralizes the input-length and prefix-match signals,
+ * which is the relevant threat for a network-facing token check.)
+ */
+function safeEqual_(candidate, expected) {
+  var diff = candidate.length ^ expected.length;
+  for (var i = 0; i < expected.length; i++) {
+    diff |= (candidate.charCodeAt(i) || 0) ^ expected.charCodeAt(i);
+  }
+  return diff === 0;
 }

@@ -163,7 +163,33 @@ describe("buildSyncPayload + pushToSheet", () => {
     ).rejects.toThrow(/URL is required/);
     const fail: Fetcher = async () => ({ ok: false, status: 500, json: async () => ({}) });
     await expect(
-      pushToSheet("https://x", buildSyncPayload([], result([]), "d"), fail),
+      pushToSheet("https://x", buildSyncPayload([], result([]), "d"), fail, {
+        retries: 0,
+      }),
     ).rejects.toThrow(/500/);
+  });
+
+  it("retries a transient 503 then returns the eventual success", async () => {
+    const statuses = [503, 200];
+    let i = 0;
+    const delays: number[] = [];
+    const fetcher: Fetcher = async () => {
+      const status = statuses[Math.min(i, statuses.length - 1)];
+      i += 1;
+      return {
+        ok: status < 400,
+        status,
+        json: async () => ({ appended: 2, updated: 1 }),
+      };
+    };
+    const out = await pushToSheet(
+      "https://script.example/exec",
+      buildSyncPayload([], result([]), "2026-06-30"),
+      fetcher,
+      { baseDelayMs: 1, sleep: async (ms) => void delays.push(ms) },
+    );
+    expect(out).toEqual({ appended: 2, updated: 1 });
+    expect(i).toBe(2); // one retry after the 503
+    expect(delays).toEqual([1]);
   });
 });

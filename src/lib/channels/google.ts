@@ -3,7 +3,7 @@ import {
   type ChannelConnector,
   type DateRange,
   type Fetcher,
-  fetchWithTimeout,
+  fetchWithRetry,
   hasFields,
   num,
   objectRows,
@@ -80,7 +80,7 @@ export const googleConnector: ChannelConnector = {
     if (creds.loginCustomerId) {
       headers["login-customer-id"] = String(creds.loginCustomerId).replace(/-/g, "");
     }
-    const res = await fetchWithTimeout(
+    const res = await fetchWithRetry(
       fetcher,
       `https://googleads.googleapis.com/v17/customers/${customerId}/googleAds:search`,
       { method: "POST", headers, body: JSON.stringify({ query }) },

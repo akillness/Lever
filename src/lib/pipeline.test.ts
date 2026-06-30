@@ -117,6 +117,7 @@ describe("runPipeline", () => {
       storage: new InMemoryStorage(),
       fetcher,
       sheetsWebhookUrl: "https://script.example/exec",
+      sheetsRetry: { retries: 0 },
     });
     expect(out.sync.attempted).toBe(true);
     expect(out.sync.ok).toBe(false);

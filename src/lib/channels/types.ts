@@ -103,3 +103,51 @@ export async function fetchWithTimeout(
     clearTimeout(timer);
   }
 }
+/** HTTP statuses worth retrying: rate limits (429) and transient 5xx. */
+export const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+/** Default retry budget (in addition to the first attempt). */
+export const MAX_FETCH_RETRIES = 2;
+
+export interface RetryOptions {
+  /** Per-attempt timeout passed through to {@link fetchWithTimeout}. */
+  timeoutMs?: number;
+  /** Extra attempts after the first (total attempts = retries + 1). */
+  retries?: number;
+  /** Base backoff delay; attempt n waits baseDelayMs * 2**n. */
+  baseDelayMs?: number;
+  /** Injectable sleep so tests run without real timers. */
+  sleep?: (ms: number) => Promise<void>;
+}
+
+const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/**
+ * Timeout-bounded fetch with bounded exponential-backoff retries. Free-tier ad
+ * APIs rate-limit aggressively (429) and have transient 5xx blips; this retries
+ * those — and thrown network/timeout errors — a few times before giving up, so a
+ * single hiccup doesn't fail a whole ingest run. A non-retryable status (e.g. 4xx
+ * auth errors) is returned immediately; the final attempt's result/error stands.
+ */
+export async function fetchWithRetry(
+  fetcher: Fetcher,
+  url: string,
+  init: RequestInit = {},
+  opts: RetryOptions = {},
+): Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }> {
+  const retries = opts.retries ?? MAX_FETCH_RETRIES;
+  const baseDelayMs = opts.baseDelayMs ?? 500;
+  const sleep = opts.sleep ?? realSleep;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await fetchWithTimeout(fetcher, url, init, opts.timeoutMs);
+      if (attempt < retries && RETRYABLE_STATUS.has(res.status)) {
+        await sleep(baseDelayMs * 2 ** attempt);
+        continue;
+      }
+      return res;
+    } catch (err) {
+      if (attempt >= retries) throw err;
+      await sleep(baseDelayMs * 2 ** attempt);
+    }
+  }
+}

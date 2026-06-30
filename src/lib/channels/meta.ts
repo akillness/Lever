@@ -3,7 +3,7 @@ import {
   type ChannelConnector,
   type DateRange,
   type Fetcher,
-  fetchWithTimeout,
+  fetchWithRetry,
   hasFields,
   num,
   objectRows,
@@ -89,7 +89,7 @@ export const metaConnector: ChannelConnector = {
       time_range: JSON.stringify({ since: range.start, until: range.end }),
       access_token: String(creds.accessToken),
     });
-    const res = await fetchWithTimeout(
+    const res = await fetchWithRetry(
       fetcher,
       `https://graph.facebook.com/v21.0/act_${acct}/insights?${params}`,
     );

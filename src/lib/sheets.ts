@@ -7,7 +7,7 @@
  * an injectable fetcher.
  */
 import type { AdRow, AnalysisResult, Channel, RecommendationAction } from "./types";
-import type { Fetcher } from "./channels/types";
+import { fetchWithRetry, type Fetcher, type RetryOptions } from "./channels/types";
 
 /** One spreadsheet row: a campaign's metrics + the engine's verdict. */
 export interface SheetRow {
@@ -128,20 +128,29 @@ export function buildSyncPayload(
 
 /**
  * POST the payload to the Apps Script web app URL. Returns the parsed response.
- * Throws on a non-2xx so callers surface sync failures rather than silently
- * dropping data.
+ * The call is timeout-bounded and retries transient failures (429/5xx, network
+ * blips) with backoff so a momentary Apps Script hiccup doesn't drop a sync;
+ * throws on a non-2xx that survives the retries so callers surface real failures
+ * rather than silently losing data. `opts` tunes the retry budget (tests inject
+ * a fake sleep to stay fast).
  */
 export async function pushToSheet(
   webhookUrl: string,
   payload: SheetSyncPayload,
   fetcher: Fetcher = fetch,
+  opts: RetryOptions = {},
 ): Promise<{ appended?: number; updated?: number } & Record<string, unknown>> {
   if (!webhookUrl) throw new Error("sheets webhook URL is required");
-  const res = await fetcher(webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  const res = await fetchWithRetry(
+    fetcher,
+    webhookUrl,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+    opts,
+  );
   if (!res.ok) throw new Error(`sheets sync failed: ${res.status}`);
   return (await res.json()) as Record<string, unknown>;
 }

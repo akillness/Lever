@@ -81,3 +81,26 @@ vault at runtime via `POST /api/credentials`.
 2. The zero-config demo must keep working with no env set.
 3. Every new module ships with unit tests; the existing suite stays green.
 4. Connector failures are isolated and reported, never silently dropped.
+
+## 8. Production resilience (shipped — cycles 58–61)
+
+Real free-tier ad APIs and the Apps Script web app fail in transient,
+hostile-to-naive-clients ways (429 rate limits, 5xx blips, hung sockets). This
+iteration hardened the network seams so a single hiccup never fails or stalls a
+whole ingest run, and closed a timing-side-channel on the public Sheets endpoint:
+
+- **Bounded retry with backoff.** `fetchWithRetry` wraps the existing
+  abort-timeout fetch and retries 429/500/502/503/504 + thrown network/timeout
+  errors with exponential backoff (injectable sleep → offline-testable). Non-
+  retryable 4xx (e.g. auth) return immediately. All four connectors and the
+  Sheets push now route through it; `PipelineOptions.sheetsRetry` tunes the budget.
+- **Constant-time web-app token.** The Apps Script `doPost` token check uses a
+  length-folded constant-time compare (`safeEqual_`) so the shared secret's
+  length/prefix can't leak through response timing.
+- **Live-verified.** Admin-gated `POST /api/ingest` ranks real-shaped rows end to
+  end; production fails closed (401) without `LEVER_ADMIN_TOKEN`; the credential
+  catalog serves all four channels' free-tier onboarding.
+
+The prioritization item "Connector pagination + rate-limit backoff" is now
+**half-shipped** — rate-limit backoff is done; multi-page pagination for large
+accounts remains the next connector task.

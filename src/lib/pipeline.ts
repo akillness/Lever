@@ -9,7 +9,7 @@
  */
 import { analyze } from "./engine";
 import { allConnectors } from "./channels";
-import type { ChannelConnector, DateRange, Fetcher } from "./channels/types";
+import type { ChannelConnector, DateRange, Fetcher, RetryOptions } from "./channels/types";
 import { getVault, type CredentialVault } from "./secrets";
 import { createStorage, type StorageAdapter, type StoredDataset } from "./storage";
 import { buildSyncPayload, pushToSheet } from "./sheets";
@@ -96,6 +96,8 @@ export interface PipelineOptions {
   sheetsWebhookUrl?: string;
   /** Defaults to LEVER_SHEETS_TOKEN. */
   sheetsToken?: string;
+  /** Tune the Sheets push retry budget (timeout/retries/backoff). */
+  sheetsRetry?: RetryOptions;
   /** Persist the ingested dataset. Default true (skipped when there are no rows). */
   persist?: boolean;
   /** Push to Sheets. Default: true when a webhook URL is available. */
@@ -145,7 +147,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRes
   if (shouldSync && webhookUrl && ingest.rows.length > 0) {
     const payload = buildSyncPayload(ingest.rows, result, range.end, token);
     try {
-      const res = await pushToSheet(webhookUrl, payload, fetcher);
+      const res = await pushToSheet(webhookUrl, payload, fetcher, options.sheetsRetry);
       sync = {
         attempted: true,
         ok: true,
