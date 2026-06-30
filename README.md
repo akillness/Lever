@@ -1,1 +1,109 @@
-# toMedia
+<div align="center">
+
+# ⚡ Lever
+
+### The media buyer's profit copilot
+
+**Turn four fragmented ad dashboards into one ranked "do this next" list — every move shown with the math and a projected dollar impact.**
+
+[![Build](https://img.shields.io/badge/build-passing-brightgreen)](#-verify-it-yourself)
+[![Tests](https://img.shields.io/badge/tests-14%20passing-brightgreen)](src/lib/engine.test.ts)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Deploy](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://vercel.com)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+</div>
+
+---
+
+## The problem worth solving
+
+A media buyer at an affiliate company runs spend across **Google, Meta, Taboola, and TikTok**.
+The data lives in four dashboards with four schemas. The real job — *what do I do with the next
+dollar?* — is done by hand, every morning, under pressure. That single decision is the
+highest-leverage point in the entire ROI loop, and it's the one thing creative generators,
+ad-upload workflows, and landing-page builders **don't** touch.
+
+## What Lever does
+
+Lever is the **decision brain** that sits on top of your spend:
+
+- 📥 **Ingests** normalized performance from every channel (CSV upload or a seeded demo).
+- 🧮 **Computes** what actually matters to a list-builder: **CPA, EPC, ROAS, profit** — not vanity metrics.
+- 🎯 **Recommends** the highest-leverage moves — **Pause · Scale · Refresh creative · Reallocate** —
+  each ranked by **projected dollar impact** and backed by a transparent formula.
+- 🤝 **Argues for itself**: every recommendation shows the math, so a buyer can act on it *and defend it*.
+
+> It doesn't optimize vanity ROAS. It optimizes **profit against target** — the affiliate north-star.
+
+## Why it wins
+
+| Most tools | Lever |
+|---|---|
+| Make more creative / upload ads / build pages | Tells you **what to change and why** |
+| Vanity ROAS dashboards | **Profit-objective**, dollar-ranked actions |
+| Black-box "AI suggestions" | **Deterministic + explainable** — every move shows its formula |
+
+The core is an **explainable, profit-objective recommendation engine**: pure, deterministic,
+14 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
+
+## Quickstart
+
+```bash
+npm install
+npm run dev          # http://localhost:3000  — boots on a seeded 4-channel dataset
+```
+
+Drop in any ad-platform CSV (schema-tolerant — it understands `cost`/`spend`,
+`conversion_value`/`revenue`, `platform`/`channel`, …) and the action feed re-ranks instantly.
+
+Drive the engine programmatically (or from an agent/MCP client):
+
+```bash
+curl -X POST http://localhost:3000/api/analyze \
+  -H 'content-type: application/json' \
+  -d '{"csv":"campaign,platform,cost,conversion_value,leads,clicks,impressions\nSolar,Google,1000,2500,40,500,12000"}'
+```
+
+## 🔬 Verify it yourself
+
+```bash
+npm test             # 14 passing — engine rules, metrics, CSV parsing
+npm run build        # production build + full TypeScript check
+```
+
+On the seeded dataset the engine flags **$6,567 of projected impact** across the portfolio —
+pausing two money-losers, scaling three winners, and reallocating budget between them.
+
+## Architecture
+
+```
+src/lib/engine.ts      ← the core: profit-objective recommendation engine (deterministic)
+src/lib/metrics.ts     ← pure metric derivations (CPA, EPC, ROAS, profit, …)
+src/lib/csv.ts         ← schema-tolerant CSV → canonical rows
+src/lib/storage.ts     ← StorageAdapter seam (in-memory now, Firestore/Supabase ready)
+src/app/page.tsx       ← dashboard: KPIs → prioritized action feed
+src/app/api/analyze    ← server route / agent entry point
+```
+
+## Going to production
+
+- **Deploy**: `vercel` — it's a stock Next.js app, zero config.
+- **Persistence**: implement `FirestoreStorage` (or Supabase) against the existing
+  `StorageAdapter` interface in `src/lib/storage.ts`; the engine and UI need **zero changes**.
+  Provide credentials via Vercel environment variables.
+- **Live data**: swap the CSV/seed ingest for OAuth pulls from each ad platform behind the same
+  `AdRow[]` contract.
+
+## Project docs
+
+- [`docs/target-intel-itstoday.md`](docs/target-intel-itstoday.md) — the brief this was built for
+- [`docs/01-brainstorm-decision.md`](docs/01-brainstorm-decision.md) — idea & brand decision
+- [`docs/02-spec.md`](docs/02-spec.md) — product spec
+
+---
+
+<div align="center">
+<sub>Built for It's Today Media's media-buying team — deterministic, explainable, profit-first.</sub>
+</div>
