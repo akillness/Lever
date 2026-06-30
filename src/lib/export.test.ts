@@ -52,3 +52,26 @@ describe("recommendationsToCsv", () => {
     expect(csv).toContain("PAUSE");
   });
 });
+describe("CSV formula-injection hardening", () => {
+  it("prefixes fields that begin with a formula trigger so sheets treat them as text", () => {
+    const csv = recommendationsToCsv([
+      rec({ entityName: "=HYPERLINK(\"http://evil\")", rationale: "+1+1" }),
+    ]);
+    // a leading = or + is neutralized with a single quote, then quoted because it
+    // now contains a quote / would otherwise execute in Excel/Sheets
+    expect(csv).toContain("'=HYPERLINK");
+    expect(csv).toContain("'+1+1");
+    // and never emits a raw cell that starts with the bare formula trigger
+    for (const line of csv.split("\n").slice(1)) {
+      for (const cell of line.split(",")) {
+        expect(/^[=+\-@]/.test(cell)).toBe(false);
+      }
+    }
+  });
+
+  it("leaves ordinary fields untouched", () => {
+    const csv = recommendationsToCsv([rec({ entityName: "Solar Leads" })]);
+    expect(csv).toContain("Solar Leads");
+    expect(csv).not.toContain("'Solar");
+  });
+});

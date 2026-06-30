@@ -7,6 +7,9 @@ import { recommendationsToCsv } from "@/lib/export";
 import { SAMPLE_DATA } from "@/lib/sampleData";
 import type { AdRow, EngineConfig, RecommendationAction } from "@/lib/types";
 
+/** Reject pathological uploads before they block the main thread during a live demo. */
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5 MB
+
 const usd = (n: number) =>
   new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -18,6 +21,7 @@ const ACTION_STYLES: Record<RecommendationAction, string> = {
   PAUSE: "bg-red-50 text-red-700 ring-red-600/20",
   SCALE: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
   REFRESH_CREATIVE: "bg-amber-50 text-amber-700 ring-amber-600/20",
+  REVIEW: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
   KEEP: "bg-slate-100 text-slate-600 ring-slate-500/20",
 };
 
@@ -25,6 +29,7 @@ const ACTION_LABEL: Record<RecommendationAction, string> = {
   PAUSE: "Pause",
   SCALE: "Scale",
   REFRESH_CREATIVE: "Refresh creative",
+  REVIEW: "Review",
   KEEP: "Keep",
 };
 
@@ -32,13 +37,23 @@ export default function Home() {
   const [rows, setRows] = useState<AdRow[]>(SAMPLE_DATA);
   const [source, setSource] = useState("Seeded demo dataset");
   const [error, setError] = useState<string | null>(null);
+  const [isParsing, setIsParsing] = useState(false);
   const [config, setConfig] = useState<EngineConfig>(DEFAULT_CONFIG);
 
   const result = useMemo(() => analyze(rows, config), [rows, config]);
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-uploading the same file
     if (!file) return;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError(
+        `That file is ${(file.size / 1_048_576).toFixed(1)} MB — please upload an export under 5 MB.`,
+      );
+      return;
+    }
+    setIsParsing(true);
+    setError(null);
     try {
       const text = await file.text();
       const parsed = parseCsv(text);
@@ -51,6 +66,8 @@ export default function Home() {
       setError(null);
     } catch {
       setError("Could not read that file.");
+    } finally {
+      setIsParsing(false);
     }
   }
 
@@ -120,13 +137,16 @@ export default function Home() {
           <span className="text-slate-500"> across {actionable.length} actions</span>
         </div>
         <div className="ml-auto flex items-center gap-3">
-          <label className="cursor-pointer rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700">
-            Upload CSV
+          <label
+            className={`rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 focus-within:ring-2 focus-within:ring-slate-900 focus-within:ring-offset-2 ${isParsing ? "cursor-progress opacity-70" : "cursor-pointer"}`}
+          >
+            {isParsing ? "Parsing…" : "Upload CSV"}
             <input
               type="file"
               accept=".csv,text/csv"
-              aria-label="Upload ad-platform CSV export"
-              className="hidden"
+              aria-label="Upload ad-platform CSV export (max 5 MB)"
+              disabled={isParsing}
+              className="sr-only"
               onChange={onUpload}
             />
           </label>
@@ -145,7 +165,11 @@ export default function Home() {
           </button>
         </div>
         <p className="w-full text-xs text-slate-500">Source: {source}</p>
-        {error && <p className="w-full text-xs text-red-600">{error}</p>}
+        {error && (
+          <p className="w-full text-xs text-red-600" role="alert">
+            {error}
+          </p>
+        )}
       </section>
 
       <section className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
@@ -189,6 +213,10 @@ export default function Home() {
             onChange={(scaleStep) => setConfig((c) => ({ ...c, scaleStep }))}
           />
         </div>
+        <p className="mt-2 text-xs text-slate-400">
+          Raise Target ROAS above 1.0 to flag profitable-but-under-goal entities for{" "}
+          <span className="font-semibold text-indigo-600">Review</span>.
+        </p>
       </section>
 
       <section className="mb-6">

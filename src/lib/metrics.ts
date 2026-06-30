@@ -54,6 +54,17 @@ export function signalConfidence(
   return round(0.4 * spendScore + 0.6 * convScore, 2);
 }
 
+/**
+ * Confidence derived from spend depth alone, 0..1.
+ *
+ * Used for the zero-conversion budget leak: a high-spend entity returning nothing
+ * is among the *most* certain waste, so its trust must scale with how much money
+ * is being burned — not be dragged to the floor by the missing conversion volume
+ * that `signalConfidence` (conversion-weighted) would penalize it for.
+ */
+export function spendConfidence(spend: number, minSpend: number): number {
+  return round(Math.min(1, safeDiv(spend, minSpend * 4)), 2);
+}
 
 /** Median of a numeric list (returns 0 for empty input). */
 export function median(values: number[]): number {
@@ -65,10 +76,15 @@ export function median(values: number[]): number {
     : sorted[mid];
 }
 
-/** Median CTR per channel across the dataset — the fatigue baseline. */
+/**
+ * Median CTR per channel across the dataset — the fatigue baseline.
+ * Zero-impression rows are excluded: they have an undefined (not zero) CTR and
+ * would otherwise drag the median down and suppress legitimate REFRESH signals.
+ */
 export function channelMedianCtr(rows: AdRow[]): Record<Channel, number> {
   const byChannel = new Map<Channel, number[]>();
   for (const row of rows) {
+    if (row.impressions === 0) continue;
     const ctr = safeDiv(row.clicks, row.impressions);
     const list = byChannel.get(row.channel) ?? [];
     list.push(ctr);

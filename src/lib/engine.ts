@@ -11,8 +11,12 @@ import {
   effectiveRevenue,
   round,
   signalConfidence,
+  spendConfidence,
   summarizeByChannel,
 } from "./metrics";
+
+/** The hard money-loss line: ROAS below this means an entity costs more than it returns. */
+export const BREAKEVEN_ROAS = 1.0;
 
 export const DEFAULT_CONFIG: EngineConfig = {
   targetRoas: 1.0,
@@ -32,6 +36,11 @@ export const DEFAULT_CONFIG: EngineConfig = {
  * Deterministic: identical input + config always yields identical output.
  * Every recommendation carries a transparent, formula-backed rationale and a
  * projected dollar impact, so the buyer can trust (and defend) the move.
+ *
+ * Two distinct ROAS lines drive the tiers:
+ *  - breakeven (fixed 1.0): below it you lose money → PAUSE;
+ *  - targetRoas (the buyer's goal): profitable but below it → REVIEW;
+ *  - targetRoas × scaleTrigger: a proven winner → SCALE.
  */
 export function analyze(
   rows: AdRow[],
@@ -63,7 +72,9 @@ export function analyze(
         rationale:
           `Budget leak: $${row.spend} spend, 0 conversions (ROAS ${m.roas}). ` +
           `No signal of working — pausing recovers the full ~$${round(row.spend)}.`,
-        confidence,
+        // Zero-conversion waste is certain in proportion to how much is burning,
+        // so confidence scales with spend depth, not the absent conversion volume.
+        confidence: spendConfidence(row.spend, cfg.minSpend),
         metrics: m,
       });
       continue;
@@ -81,7 +92,7 @@ export function analyze(
         severity: 3,
         projectedImpactUsd: round(Math.abs(m.profit)),
         rationale:
-          `Losing money: ROAS ${m.roas} (< breakeven ${cfg.targetRoas}), ` +
+          `Losing money: ROAS ${m.roas} (< breakeven ${BREAKEVEN_ROAS.toFixed(1)}), ` +
           `profit $${m.profit} on $${row.spend} spend. ` +
           `Pausing stops ~$${round(Math.abs(m.profit))} of loss this period.` +
           (thin
@@ -161,6 +172,28 @@ export function analyze(
       }
     }
 
+    // REVIEW — profitable, but below the buyer's own target ROAS (only fires when
+    // targetRoas > breakeven). A profit copilot must not call a sub-target campaign
+    // "healthy"; it flags the gap to close rather than promising a guaranteed dollar.
+    if (hasSpendSignal && m.roas < cfg.targetRoas) {
+      const shortfall = round(row.spend * (cfg.targetRoas - m.roas));
+      recommendations.push({
+        entityId: row.id,
+        entityName: row.name,
+        channel: row.channel,
+        action: "REVIEW",
+        severity: 1,
+        projectedImpactUsd: 0,
+        rationale:
+          `Below target: ROAS ${m.roas} (< target ${round(cfg.targetRoas, 2)}) — ` +
+          `profitable but ~$${shortfall} short of your goal on $${row.spend} spend. ` +
+          `Optimize bid/creative/audience or trim before it slips under breakeven.`,
+        confidence,
+        metrics: m,
+      });
+      continue;
+    }
+
     // KEEP — no high-leverage action; hold.
     recommendations.push({
       entityId: row.id,
@@ -177,10 +210,13 @@ export function analyze(
     });
   }
 
-  // Rank by projected dollar impact, then severity.
+  // Rank by projected dollar impact, then severity, then entityId for a fully
+  // stable, defensible deterministic order (no reliance on input ordering).
   recommendations.sort(
     (a, b) =>
-      b.projectedImpactUsd - a.projectedImpactUsd || b.severity - a.severity,
+      b.projectedImpactUsd - a.projectedImpactUsd ||
+      b.severity - a.severity ||
+      a.entityId.localeCompare(b.entityId),
   );
 
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -242,9 +278,11 @@ export function accountHealth(
 }
 
 /**
- * Portfolio reallocation: redeploy the budget actually freed by the top PAUSE
- * candidate into the top SCALE candidate, and project the net incremental profit
- * on that real freed budget (winner's ROAS × marginal efficiency − 1).
+ * Portfolio reallocation: redeploy the budget freed by the top PAUSE candidate
+ * into the top SCALE candidate. To stay consistent with the engine's stated
+ * diminishing-returns stance, only the share the winner can absorb at the quoted
+ * marginal efficiency — `scaleStep × winner spend` — is moved at the full rate;
+ * any remaining freed budget is called out for spreading rather than over-credited.
  */
 function buildReallocation(
   recs: Recommendation[],
@@ -256,12 +294,22 @@ function buildReallocation(
   if (!pause || !scale) return null;
 
   // The freed budget is the loser's actual spend — the dollars you stop wasting.
-  const freedBudget = byId.get(pause.entityId)?.spend ?? 0;
-  const movedSpend = round(freedBudget);
+  const freedBudget = round(byId.get(pause.entityId)?.spend ?? 0);
+  // The winner absorbs new budget at the same diminishing-returns step the SCALE
+  // rule justifies; pushing the entire freed budget in at flat efficiency overstates.
+  const winnerSpend = byId.get(scale.entityId)?.spend ?? 0;
+  const absorbable = round(winnerSpend * cfg.scaleStep);
+  const movedSpend = Math.min(freedBudget, absorbable);
+  const remainder = round(freedBudget - movedSpend);
   const projected = Math.max(
     0,
     round(movedSpend * (scale.metrics.roas * cfg.marginalEfficiency - 1)),
   );
+
+  const spreadNote =
+    remainder > 0
+      ? ` ~$${remainder} of the freed budget exceeds what this winner can absorb at quoted efficiency — spread it across other on-target entities.`
+      : "";
 
   return {
     fromEntityId: pause.entityId,
@@ -271,8 +319,9 @@ function buildReallocation(
     amountUsd: movedSpend,
     projectedImpactUsd: projected,
     rationale:
-      `Reallocate the ~$${movedSpend} freed from "${pause.entityName}" (${pause.channel}, losing) ` +
+      `Reallocate ~$${movedSpend} freed from "${pause.entityName}" (${pause.channel}, losing) ` +
       `into "${scale.entityName}" (${scale.channel}, ROAS ${scale.metrics.roas}) ` +
-      `for ~$${projected} projected net profit at ${cfg.marginalEfficiency * 100}% marginal efficiency.`,
+      `for ~$${projected} projected net profit at ${cfg.marginalEfficiency * 100}% marginal efficiency.` +
+      spreadNote,
   };
 }

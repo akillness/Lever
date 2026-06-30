@@ -7,7 +7,7 @@
 **Turn four fragmented ad dashboards into one ranked "do this next" list — every move shown with the math and a projected dollar impact.**
 
 [![Build](https://img.shields.io/badge/build-passing-brightgreen)](#-verify-it-yourself)
-[![Tests](https://img.shields.io/badge/tests-52%20passing-brightgreen)](src/lib/engine.test.ts)
+[![Tests](https://img.shields.io/badge/tests-67%20passing-brightgreen)](src/lib/engine.test.ts)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Deploy](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://vercel.com)
@@ -31,8 +31,9 @@ Lever is the **decision brain** that sits on top of your spend:
 
 - 📥 **Ingests** normalized performance from every channel (CSV upload or a seeded demo).
 - 🧮 **Computes** what actually matters to a list-builder: **CPA, EPC, ROAS, profit** — not vanity metrics.
-- 🎯 **Recommends** the highest-leverage moves — **Pause · Scale · Refresh creative · Reallocate** —
+- 🎯 **Recommends** the highest-leverage moves — **Pause · Scale · Refresh creative · Review · Reallocate** —
   each ranked by **projected dollar impact**, a **confidence** score, and a transparent formula.
+- 🎯 **Target-aware** — raise your ROAS goal above breakeven and profitable-but-under-target entities are flagged **Review** instead of being called "healthy".
 - 🩸 **Catches budget leaks** — spend burning with zero conversions is flagged as the *most urgent* move.
 - 📉 **Detects creative fatigue two ways** — CTR below the channel median *and* a sharp drop versus the creative's own prior period.
 - 💎 **Values first-party LTV** — feed a known lifetime value per conversion and the engine optimizes on *true downstream value*, not just immediately-attributed revenue.
@@ -52,7 +53,7 @@ Lever is the **decision brain** that sits on top of your spend:
 | Black-box "AI suggestions" | **Deterministic + explainable** — every move shows its formula |
 
 The core is an **explainable, profit-objective recommendation engine**: pure, deterministic,
-52 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
+67 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
 
 ## Quickstart
 
@@ -75,14 +76,15 @@ curl -X POST http://localhost:3000/api/analyze \
 ## 🔬 Verify it yourself
 
 ```bash
-npm test             # 41 passing — engine rules, metrics, confidence, storage, CSV, export
+npm test             # 67 passing — engine rules, metrics, confidence, storage, CSV, export, API route
 npm run build        # production build + full TypeScript check
 ```
 
 On the seeded dataset the engine flags **$8,109 of recommended impact** across the portfolio —
 catching a budget leak (spend with zero conversions), pausing money-losers, scaling winners,
-and refreshing fatigued creative — plus a **separate $1,920 budget-reallocation** opportunity
-(never double-counted into the headline) and an overall **account health of 80/100**.
+and refreshing fatigued creative — plus a **separate ~$1,008 budget-reallocation** opportunity
+(capped at what the winner can absorb at quoted efficiency; never double-counted into the
+headline) and an overall **account health of 80/100**.
 
 ## Architecture
 

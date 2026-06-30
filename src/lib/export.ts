@@ -1,8 +1,15 @@
 import type { Recommendation } from "./types";
 
-/** CSV-escape a single field (quote when it contains a comma, quote, or newline). */
+/**
+ * CSV-escape a single field.
+ *  - Quotes when it contains a comma, quote, or newline (RFC-4180).
+ *  - Neutralizes spreadsheet formula injection: a field that an attacker-controlled
+ *    name/rationale could start with (= + - @, or a tab/CR) is prefixed with a
+ *    single quote so Excel/Sheets treat it as text, never an executable formula.
+ */
 function esc(value: string | number): string {
-  const s = String(value);
+  let s = String(value);
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { analyze, accountHealth } from "./engine";
-import { computeMetrics, safeDiv, median, signalConfidence, summarizeByChannel, effectiveRevenue } from "./metrics";
+import { computeMetrics, safeDiv, median, signalConfidence, spendConfidence, summarizeByChannel, effectiveRevenue, channelMedianCtr } from "./metrics";
 import { parseCsv, sanitizeAdRows } from "./csv";
 import type { AdRow } from "./types";
 
@@ -44,7 +44,7 @@ describe("metrics", () => {
 });
 
 describe("accountHealth", () => {
-  const cfg = { targetRoas: 1, scaleTrigger: 1.25, scaleStep: 0.3, marginalEfficiency: 0.8, fatigueRatio: 0.6, refreshCap: 0.5, minSpend: 250, minConversions: 5 };
+  const cfg = { targetRoas: 1, scaleTrigger: 1.25, scaleStep: 0.3, marginalEfficiency: 0.8, fatigueRatio: 0.6, fatigueDeclineRatio: 0.25, refreshCap: 0.5, minSpend: 250, minConversions: 5 };
 
   it("is 0 for an empty / zero-spend portfolio", () => {
     expect(accountHealth([], [], cfg)).toBe(0);
@@ -201,10 +201,13 @@ describe("engine rules", () => {
     expect(reallocation).not.toBeNull();
     expect(reallocation!.fromEntityId).toBe("p");
     expect(reallocation!.toEntityId).toBe("s");
-    // moves the loser's actual freed spend ($1000), not a derived proxy
-    expect(reallocation!.amountUsd).toBe(1000);
-    // net profit redeploying $1000 at ROAS 2 × 0.8 efficiency − 1 = $600
-    expect(reallocation!.projectedImpactUsd).toBe(600);
+    // caps the move at what the winner can absorb at quoted efficiency:
+    // scaleStep 0.3 × winner spend 1000 = $300 (the freed $1000 is larger)
+    expect(reallocation!.amountUsd).toBe(300);
+    // net profit redeploying $300 at ROAS 2 × 0.8 efficiency − 1 = $180
+    expect(reallocation!.projectedImpactUsd).toBe(180);
+    // the freed budget the winner can't absorb is flagged for spreading
+    expect(reallocation!.rationale).toMatch(/spread/i);
   });
 
   it("does NOT double-count reallocation into the headline projected impact", () => {
@@ -405,5 +408,93 @@ describe("LTV-weighted revenue", () => {
     const [r] = parseCsv(csv);
     expect(r.ltvPerConversion).toBe(95);
     expect(parseCsv("campaign,platform,cost\nX,Google,500")[0].ltvPerConversion).toBeUndefined();
+  });
+});
+describe("REVIEW tier (profitable but below the buyer's target ROAS)", () => {
+  it("flags a profitable sub-target entity as REVIEW when targetRoas > breakeven", () => {
+    const { recommendations } = analyze(
+      [row({ id: "u", spend: 1000, revenue: 1200, conversions: 40, clicks: 2000, impressions: 40000 })],
+      { targetRoas: 1.5 },
+    );
+    const rec = recommendations[0];
+    expect(rec.action).toBe("REVIEW");
+    // a flag, not a promised dollar — never inflates the headline impact
+    expect(rec.projectedImpactUsd).toBe(0);
+    expect(rec.rationale).toMatch(/below target/i);
+    // shortfall = spend × (target − roas) = 1000 × (1.5 − 1.2) = $300
+    expect(rec.rationale).toContain("$300");
+  });
+
+  it("is backward compatible: at the default target 1.0 a profitable entity is KEEP, never REVIEW", () => {
+    const { recommendations } = analyze([
+      row({ id: "k", spend: 1000, revenue: 1200, conversions: 40, clicks: 2000, impressions: 40000 }),
+    ]);
+    expect(recommendations[0].action).toBe("KEEP");
+  });
+
+  it("still PAUSEs a money-loser even when the target is raised (breakeven stays 1.0)", () => {
+    const { recommendations } = analyze(
+      [row({ id: "p", spend: 1000, revenue: 400, conversions: 20, clicks: 800, impressions: 50000 })],
+      { targetRoas: 2 },
+    );
+    expect(recommendations[0].action).toBe("PAUSE");
+    // breakeven is the fixed 1.0 line, not the (raised) target
+    expect(recommendations[0].rationale).toMatch(/breakeven 1\.0/);
+  });
+});
+
+describe("budget-leak confidence (spend-depth, not conversion-weighted)", () => {
+  it("scores a high-spend zero-conversion leak as highly certain waste", () => {
+    const { recommendations } = analyze([
+      row({ id: "leak", spend: 2000, revenue: 0, conversions: 0, clicks: 500, impressions: 40000 }),
+    ]);
+    const rec = recommendations[0];
+    expect(rec.action).toBe("PAUSE");
+    // spend 2000 vs minSpend*4 (1000) saturates → confidence 1.0,
+    // not the 0.4 a conversion-weighted score would have produced
+    expect(rec.confidence).toBe(1);
+  });
+
+  it("spendConfidence rises with spend depth and clamps to 0..1", () => {
+    expect(spendConfidence(0, 250)).toBe(0);
+    expect(spendConfidence(500, 250)).toBe(0.5);
+    expect(spendConfidence(1e9, 250)).toBe(1);
+  });
+});
+
+describe("channelMedianCtr excludes zero-impression rows", () => {
+  it("does not let an undefined-CTR (0 impressions) row drag the fatigue baseline down", () => {
+    const medians = channelMedianCtr([
+      row({ channel: "meta", clicks: 200, impressions: 10000 }), // ctr 0.02
+      row({ channel: "meta", clicks: 400, impressions: 10000 }), // ctr 0.04
+      row({ channel: "meta", clicks: 0, impressions: 0 }), // undefined CTR, excluded
+    ]);
+    // median of {0.02, 0.04} = 0.03, not median of {0, 0.02, 0.04} = 0.02
+    expect(medians.meta).toBe(0.03);
+  });
+});
+
+describe("fully deterministic ordering (entityId tiebreak)", () => {
+  it("orders equal-impact, equal-severity entities by entityId regardless of input order", () => {
+    const healthy = (id: string) =>
+      row({ id, spend: 1000, revenue: 1100, conversions: 20, clicks: 2000, impressions: 40000 });
+    const forward = analyze([healthy("b"), healthy("a")]);
+    const reverse = analyze([healthy("a"), healthy("b")]);
+    expect(forward.recommendations.map((r) => r.entityId)).toEqual(["a", "b"]);
+    expect(reverse.recommendations.map((r) => r.entityId)).toEqual(["a", "b"]);
+  });
+});
+
+describe("reallocation respects diminishing returns", () => {
+  it("caps the moved budget at scaleStep × winner spend and flags the remainder", () => {
+    const { reallocation } = analyze([
+      // winner spend 1000 → absorbs 0.3 × 1000 = $300
+      row({ id: "win", spend: 1000, revenue: 2000, conversions: 50, clicks: 1000, impressions: 30000 }),
+      // loser frees $2000 — far more than the winner can absorb at quoted efficiency
+      row({ id: "lose", spend: 2000, revenue: 800, conversions: 40, clicks: 1600, impressions: 100000 }),
+    ]);
+    expect(reallocation!.amountUsd).toBe(300);
+    expect(reallocation!.projectedImpactUsd).toBe(180); // 300 × (2×0.8 − 1)
+    expect(reallocation!.rationale).toMatch(/spread/i); // $1700 remainder flagged
   });
 });

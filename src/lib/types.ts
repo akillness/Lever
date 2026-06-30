@@ -41,6 +41,7 @@ export type RecommendationAction =
   | "PAUSE"
   | "SCALE"
   | "REFRESH_CREATIVE"
+  | "REVIEW"
   | "KEEP";
 
 export interface Recommendation {
@@ -95,7 +96,7 @@ export interface AnalysisResult {
 
 /** Tunable engine configuration. Defaults are in `engine.ts`. */
 export interface EngineConfig {
-  /** ROAS at/above which an entity is healthy (e.g. 1.0 = breakeven). */
+  /** ROAS goal: at/above this an entity is on-target; the breakeven line is fixed at 1.0. */
   targetRoas: number;
   /** Multiplier on targetRoas above which we recommend scaling. */
   scaleTrigger: number;
