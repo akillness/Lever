@@ -181,8 +181,39 @@ export function analyze(
       roas: spend === 0 ? 0 : round(revenue / spend, 3),
       projectedImpactUsd,
     },
+    accountHealth: accountHealth(rows, recommendations, cfg),
     byChannel: summarizeByChannel(rows),
   };
+}
+
+/**
+ * Portfolio health, 0..100. Blends two interpretable factors:
+ *  - ROAS vs target (60%): blended ROAS relative to 1.5× the breakeven target.
+ *  - Budget discipline (40%): the inverse share of spend sitting on PAUSE'd entities.
+ * Deterministic and clamped, so it reads as a stable exec-level number.
+ */
+export function accountHealth(
+  rows: AdRow[],
+  recs: Recommendation[],
+  cfg: EngineConfig,
+): number {
+  const spend = rows.reduce((s, r) => s + r.spend, 0);
+  const revenue = rows.reduce((s, r) => s + r.revenue, 0);
+  if (spend === 0) return 0;
+
+  const blendedRoas = revenue / spend;
+  const roasFactor = Math.min(1, blendedRoas / (cfg.targetRoas * 1.5));
+
+  const pausedIds = new Set(
+    recs.filter((r) => r.action === "PAUSE").map((r) => r.entityId),
+  );
+  const leakSpend = rows
+    .filter((r) => pausedIds.has(r.id))
+    .reduce((s, r) => s + r.spend, 0);
+  const disciplineFactor = 1 - leakSpend / spend;
+
+  const score = 0.6 * roasFactor + 0.4 * disciplineFactor;
+  return Math.round(100 * Math.max(0, Math.min(1, score)));
 }
 
 /**

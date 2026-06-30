@@ -81,6 +81,8 @@ export interface AnalysisResult {
     roas: number;
     projectedImpactUsd: number;
   };
+  /** Portfolio health 0..100: blends profitability against target with budget-leak share. */
+  accountHealth: number;
   byChannel: ChannelSummary[];
 }
 

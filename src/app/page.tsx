@@ -89,7 +89,7 @@ export default function Home() {
         </p>
       </header>
 
-      <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Kpi label="Spend" value={usd(totals.spend)} />
         <Kpi label="Revenue" value={usd(totals.revenue)} />
         <Kpi
@@ -98,6 +98,17 @@ export default function Home() {
           tone={totals.profit >= 0 ? "good" : "bad"}
         />
         <Kpi label="Blended ROAS" value={`${totals.roas.toFixed(2)}x`} />
+        <Kpi
+          label="Account health"
+          value={`${result.accountHealth}/100`}
+          tone={
+            result.accountHealth >= 70
+              ? "good"
+              : result.accountHealth < 40
+                ? "bad"
+                : undefined
+          }
+        />
       </section>
 
       <section className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-4">

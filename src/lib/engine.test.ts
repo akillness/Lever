@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyze } from "./engine";
+import { analyze, accountHealth } from "./engine";
 import { computeMetrics, safeDiv, median, signalConfidence, summarizeByChannel } from "./metrics";
 import { parseCsv, sanitizeAdRows } from "./csv";
 import type { AdRow } from "./types";
@@ -40,6 +40,35 @@ describe("metrics", () => {
     expect(median([3, 1, 2])).toBe(2);
     expect(median([4, 1, 3, 2])).toBe(2.5);
     expect(median([])).toBe(0);
+  });
+});
+
+describe("accountHealth", () => {
+  const cfg = { targetRoas: 1, scaleTrigger: 1.25, scaleStep: 0.3, marginalEfficiency: 0.8, fatigueRatio: 0.6, refreshCap: 0.5, minSpend: 250, minConversions: 5 };
+
+  it("is 0 for an empty / zero-spend portfolio", () => {
+    expect(accountHealth([], [], cfg)).toBe(0);
+  });
+
+  it("rises with ROAS and falls when spend leaks into PAUSE'd entities", () => {
+    const healthy = analyze([
+      row({ id: "w", spend: 1000, revenue: 2000, conversions: 50, clicks: 1000, impressions: 30000 }),
+    ]);
+    const leaky = analyze([
+      row({ id: "w", spend: 1000, revenue: 2000, conversions: 50, clicks: 1000, impressions: 30000 }),
+      row({ id: "leak", spend: 2000, revenue: 0, conversions: 0, clicks: 300, impressions: 20000 }),
+    ]);
+    expect(healthy.accountHealth).toBeGreaterThan(leaky.accountHealth);
+    expect(healthy.accountHealth).toBeGreaterThanOrEqual(0);
+    expect(healthy.accountHealth).toBeLessThanOrEqual(100);
+  });
+
+  it("analyze() exposes accountHealth in range 0..100", () => {
+    const { accountHealth: h } = analyze([
+      row({ id: "g", spend: 1000, revenue: 1500, conversions: 30, clicks: 800, impressions: 25000 }),
+    ]);
+    expect(h).toBeGreaterThanOrEqual(0);
+    expect(h).toBeLessThanOrEqual(100);
   });
 });
 
