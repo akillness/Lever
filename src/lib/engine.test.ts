@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { analyze } from "./engine";
 import { computeMetrics, safeDiv, median, signalConfidence, summarizeByChannel } from "./metrics";
-import { parseCsv } from "./csv";
+import { parseCsv, sanitizeAdRows } from "./csv";
 import type { AdRow } from "./types";
 
 const row = (over: Partial<AdRow>): AdRow => ({
@@ -193,6 +193,32 @@ describe("csv parsing", () => {
   it("returns empty for header-only or blank input", () => {
     expect(parseCsv("")).toEqual([]);
     expect(parseCsv("id,name,spend")).toEqual([]);
+  });
+
+  it("clamps negative numeric values to zero", () => {
+    const csv = "campaign,platform,cost,conversion_value\nGlitch,Meta,-500,-100";
+    const [r] = parseCsv(csv);
+    expect(r.spend).toBe(0);
+    expect(r.revenue).toBe(0);
+  });
+});
+
+describe("sanitizeAdRows", () => {
+  it("coerces untrusted objects into safe AdRows", () => {
+    const rows = sanitizeAdRows([
+      { name: "Ad", channel: "Facebook", spend: "1000", revenue: -5, conversions: 3.2 },
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].channel).toBe("meta");
+    expect(rows[0].spend).toBe(1000);
+    expect(rows[0].revenue).toBe(0); // negative clamped
+    expect(rows[0].id).toBe("row-1");
+  });
+
+  it("drops non-object entries and returns [] for non-arrays", () => {
+    expect(sanitizeAdRows([null, 7, "x"])).toEqual([]);
+    expect(sanitizeAdRows("nope")).toEqual([]);
+    expect(sanitizeAdRows({})).toEqual([]);
   });
 });
 

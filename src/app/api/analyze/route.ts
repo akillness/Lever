@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { analyze } from "@/lib/engine";
-import { parseCsv } from "@/lib/csv";
+import { parseCsv, sanitizeAdRows } from "@/lib/csv";
 import { SAMPLE_DATA } from "@/lib/sampleData";
 import { createStorage } from "@/lib/storage";
 import type { AdRow } from "@/lib/types";
@@ -21,7 +21,8 @@ export async function POST(request: Request) {
       name?: string;
     };
     if (Array.isArray(body.rows) && body.rows.length > 0) {
-      rows = body.rows;
+      const clean = sanitizeAdRows(body.rows);
+      if (clean.length > 0) rows = clean;
     } else if (typeof body.csv === "string" && body.csv.trim().length > 0) {
       const parsed = parseCsv(body.csv);
       if (parsed.length > 0) rows = parsed;

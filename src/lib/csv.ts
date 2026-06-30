@@ -27,7 +27,8 @@ function normalizeChannel(value: string): Channel {
 function toNumber(value: string | undefined): number {
   if (value == null) return 0;
   const n = Number(value.replace(/[$,%\s]/g, ""));
-  return Number.isFinite(n) ? n : 0;
+  // Negative spend/revenue/etc. is invalid in this domain — clamp to 0.
+  return Number.isFinite(n) ? Math.max(0, n) : 0;
 }
 
 /** Split a CSV line respecting double-quoted fields. */
@@ -99,5 +100,36 @@ export function parseCsv(text: string): AdRow[] {
       date: get("date") || undefined,
     });
   }
+  return rows;
+}
+
+/** Coerce one untrusted value into a finite, non-negative number. */
+function nonNeg(value: unknown): number {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? Math.max(0, n) : 0;
+}
+
+/**
+ * Validate/coerce an arbitrary JSON payload (e.g. an API body) into safe AdRows.
+ * Drops non-object entries; normalizes channel; clamps negatives; never throws.
+ */
+export function sanitizeAdRows(input: unknown): AdRow[] {
+  if (!Array.isArray(input)) return [];
+  const rows: AdRow[] = [];
+  input.forEach((raw, i) => {
+    if (raw == null || typeof raw !== "object") return;
+    const r = raw as Record<string, unknown>;
+    rows.push({
+      id: typeof r.id === "string" && r.id ? r.id : `row-${i + 1}`,
+      name: typeof r.name === "string" && r.name ? r.name : `Row ${i + 1}`,
+      channel: normalizeChannel(typeof r.channel === "string" ? r.channel : "google"),
+      spend: nonNeg(r.spend),
+      revenue: nonNeg(r.revenue),
+      conversions: nonNeg(r.conversions),
+      clicks: nonNeg(r.clicks),
+      impressions: nonNeg(r.impressions),
+      date: typeof r.date === "string" ? r.date : undefined,
+    });
+  });
   return rows;
 }
