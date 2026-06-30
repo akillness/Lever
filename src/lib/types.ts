@@ -14,6 +14,8 @@ export interface AdRow {
   conversions: number;
   clicks: number;
   impressions: number;
+  /** This entity's CTR in the prior reporting period, for trend-fatigue detection (optional). */
+  priorCtr?: number;
   /** ISO date of the reporting period (optional). */
   date?: string;
 }
@@ -97,6 +99,8 @@ export interface EngineConfig {
   marginalEfficiency: number;
   /** CTR below channelMedian × fatigueRatio signals creative fatigue. */
   fatigueRatio: number;
+  /** Period-over-period CTR drop (vs the entity's own priorCtr) that signals fatigue. */
+  fatigueDeclineRatio: number;
   /** Cap REFRESH projected impact at refreshCap × profit. */
   refreshCap: number;
   /** Minimum spend before an entity carries enough signal to act on. */

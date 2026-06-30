@@ -7,7 +7,7 @@
 **Turn four fragmented ad dashboards into one ranked "do this next" list — every move shown with the math and a projected dollar impact.**
 
 [![Build](https://img.shields.io/badge/build-passing-brightgreen)](#-verify-it-yourself)
-[![Tests](https://img.shields.io/badge/tests-41%20passing-brightgreen)](src/lib/engine.test.ts)
+[![Tests](https://img.shields.io/badge/tests-47%20passing-brightgreen)](src/lib/engine.test.ts)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Deploy](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://vercel.com)
@@ -34,6 +34,7 @@ Lever is the **decision brain** that sits on top of your spend:
 - 🎯 **Recommends** the highest-leverage moves — **Pause · Scale · Refresh creative · Reallocate** —
   each ranked by **projected dollar impact**, a **confidence** score, and a transparent formula.
 - 🩸 **Catches budget leaks** — spend burning with zero conversions is flagged as the *most urgent* move.
+- 📉 **Detects creative fatigue two ways** — CTR below the channel median *and* a sharp drop versus the creative's own prior period.
 - 🧭 **Scores the account** with a single 0–100 **health** number and a **per-channel breakdown** for the exec view.
 - 🎛️ **What-if simulator** — tune the engine's thresholds live and watch the action feed re-rank.
 - 📤 **Exports** the ranked actions to CSV for ad-ops, and **persists** datasets (in-memory → Firestore).
@@ -50,7 +51,7 @@ Lever is the **decision brain** that sits on top of your spend:
 | Black-box "AI suggestions" | **Deterministic + explainable** — every move shows its formula |
 
 The core is an **explainable, profit-objective recommendation engine**: pure, deterministic,
-41 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
+47 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
 
 ## Quickstart
 
@@ -77,10 +78,10 @@ npm test             # 41 passing — engine rules, metrics, confidence, storage
 npm run build        # production build + full TypeScript check
 ```
 
-On the seeded dataset the engine flags **$7,647 of recommended impact** across the portfolio —
+On the seeded dataset the engine flags **$7,797 of recommended impact** across the portfolio —
 catching a budget leak (spend with zero conversions), pausing money-losers, scaling winners,
 and refreshing fatigued creative — plus a **separate $1,920 budget-reallocation** opportunity
-(never double-counted into the headline) and an overall **account health of 76/100**.
+(never double-counted into the headline) and an overall **account health of 77/100**.
 
 ## Architecture
 

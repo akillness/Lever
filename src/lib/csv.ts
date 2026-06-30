@@ -12,6 +12,7 @@ const FIELD_ALIASES: Record<keyof AdRow, string[]> = {
   clicks: ["clicks", "link_clicks"],
   impressions: ["impressions", "impr", "imps"],
   date: ["date", "day", "reporting_date"],
+  priorCtr: ["prior_ctr", "previous_ctr", "ctr_prev", "last_ctr"],
 };
 
 function normalizeChannel(value: string): Channel {
@@ -30,6 +31,17 @@ function toNumber(value: string | undefined): number {
   const n = Number(value.replace(/[$,%\s]/g, ""));
   // Negative spend/revenue/etc. is invalid in this domain — clamp to 0.
   return Number.isFinite(n) ? Math.max(0, n) : 0;
+}
+
+/**
+ * Parse an optional positive rate (e.g. a prior-period CTR like 0.05).
+ * Blank, non-numeric, or non-positive values mean "no prior signal" (undefined),
+ * so the trend-fatigue rule simply does not fire rather than misreading a 0.
+ */
+function toOptionalRate(value: string | undefined): number | undefined {
+  if (value == null || value.trim() === "") return undefined;
+  const n = Number(value.trim());
+  return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
 /**
@@ -125,6 +137,7 @@ export function parseCsv(text: string): AdRow[] {
       clicks: toNumber(get("clicks")),
       impressions: toNumber(get("impressions")),
       date: get("date") || undefined,
+      priorCtr: toOptionalRate(get("priorCtr")),
     });
   }
   return rows;
@@ -134,6 +147,12 @@ export function parseCsv(text: string): AdRow[] {
 function nonNeg(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value);
   return Number.isFinite(n) ? Math.max(0, n) : 0;
+}
+
+/** Coerce one untrusted value into a positive rate, or undefined (no signal). */
+function optRate(value: unknown): number | undefined {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
 /**
@@ -156,6 +175,7 @@ export function sanitizeAdRows(input: unknown): AdRow[] {
       clicks: nonNeg(r.clicks),
       impressions: nonNeg(r.impressions),
       date: typeof r.date === "string" ? r.date : undefined,
+      priorCtr: optRate(r.priorCtr),
     });
   });
   return rows;

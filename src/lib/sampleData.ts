@@ -104,6 +104,20 @@ export const SAMPLE_DATA: AdRow[] = [
     impressions: 38000,
     date: "2026-06-01",
   },
+  // REFRESH_CREATIVE (trend): still above the TikTok median, but CTR fell hard
+  // versus its own prior period — caught by period-over-period fatigue detection.
+  {
+    id: "tt-3",
+    name: "TikTok · Weight Loss — UGC",
+    channel: "tiktok",
+    spend: 1500,
+    revenue: 1800,
+    conversions: 45,
+    clicks: 9000,
+    impressions: 600000,
+    priorCtr: 0.024,
+    date: "2026-06-01",
+  },
   // BUDGET LEAK: real spend, zero conversions — the most urgent PAUSE.
   {
     id: "g-2",
@@ -121,7 +135,7 @@ export const SAMPLE_DATA: AdRow[] = [
 /** CSV string of the sample dataset, used to demo the upload path. */
 export function sampleCsv(): string {
   const header =
-    "id,name,channel,spend,revenue,conversions,clicks,impressions,date";
+    "id,name,channel,spend,revenue,conversions,clicks,impressions,date,prior_ctr";
   const lines = SAMPLE_DATA.map((r) =>
     [
       r.id,
@@ -133,6 +147,7 @@ export function sampleCsv(): string {
       r.clicks,
       r.impressions,
       r.date ?? "",
+      r.priorCtr ?? "",
     ].join(","),
   );
   return [header, ...lines].join("\n");

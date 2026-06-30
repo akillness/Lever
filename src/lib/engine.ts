@@ -19,6 +19,7 @@ export const DEFAULT_CONFIG: EngineConfig = {
   scaleStep: 0.3,
   marginalEfficiency: 0.8,
   fatigueRatio: 0.6,
+  fatigueDeclineRatio: 0.25,
   refreshCap: 0.5,
   minSpend: 250,
   minConversions: 5,
@@ -115,18 +116,33 @@ export function analyze(
       }
     }
 
-    // REFRESH_CREATIVE — profitable but fatigued (CTR well below channel median).
+    // REFRESH_CREATIVE — profitable but fatigued. Two independent fatigue signals:
+    //  (a) cross-sectional: CTR well below the channel median this period;
+    //  (b) period-over-period: CTR fell sharply vs this entity's own prior period.
+    // We take whichever recovery estimate is larger (capped), so a creative that is
+    // decaying against itself is caught even while still above the channel median.
     const baseCtr = medianCtr[row.channel] ?? 0;
-    if (
-      m.profit > 0 &&
-      hasSpendSignal &&
-      baseCtr > 0 &&
-      m.ctr > 0 &&
-      m.ctr < baseCtr * cfg.fatigueRatio
-    ) {
-      const uplift = Math.min(baseCtr / m.ctr - 1, cfg.refreshCap);
+    if (m.profit > 0 && hasSpendSignal && m.ctr > 0) {
+      const belowMedian = baseCtr > 0 && m.ctr < baseCtr * cfg.fatigueRatio;
+      const medianUplift = belowMedian
+        ? Math.min(baseCtr / m.ctr - 1, cfg.refreshCap)
+        : 0;
+
+      const prior = row.priorCtr ?? 0;
+      const declined = prior > 0 && m.ctr <= prior * (1 - cfg.fatigueDeclineRatio);
+      const trendUplift = declined
+        ? Math.min(prior / m.ctr - 1, cfg.refreshCap)
+        : 0;
+
+      const uplift = Math.max(medianUplift, trendUplift);
       const impact = round(m.profit * uplift);
-      if (impact > 0) {
+      if (uplift > 0 && impact > 0) {
+        const trendDominant = declined && trendUplift >= medianUplift;
+        const signal = trendDominant
+          ? `CTR fell to ${m.ctr} from ${round(prior, 4)} last period ` +
+            `(−${round((1 - m.ctr / prior) * 100, 1)}% vs ≥${cfg.fatigueDeclineRatio * 100}% trigger)`
+          : `CTR ${m.ctr} vs ${row.channel} median ${round(baseCtr, 4)} ` +
+            `(< ${cfg.fatigueRatio * 100}% of median)`;
         recommendations.push({
           entityId: row.id,
           entityName: row.name,
@@ -135,8 +151,8 @@ export function analyze(
           severity: 1,
           projectedImpactUsd: impact,
           rationale:
-            `Creative fatigue: CTR ${m.ctr} vs ${row.channel} median ${round(baseCtr, 4)} ` +
-            `(< ${cfg.fatigueRatio * 100}% of median). Refreshing toward median could recover ~$${impact} profit.`,
+            `Creative fatigue: ${signal}. ` +
+            `Refreshing toward the baseline could recover ~$${impact} profit.`,
           confidence,
           metrics: m,
         });

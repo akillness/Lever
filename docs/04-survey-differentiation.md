@@ -12,6 +12,7 @@ job-to-be-done and against the tools It's Today Media already builds.
 | Untrusted-payload sanitization for the API | `csv.ts:sanitizeAdRows` | ✓ |
 | Budget-leak detection (high spend / 0 conversions) — most urgent | `engine.ts` | ✓ |
 | PAUSE / SCALE / REFRESH_CREATIVE / KEEP rules, formula-backed | `engine.ts` | ✓ |
+| Period-over-period creative-fatigue (CTR drop vs entity's own prior period) | `engine.ts` | ✓ |
 | Per-recommendation confidence (signal strength) | `metrics.ts:signalConfidence` | ✓ |
 | Portfolio reallocation (free budget → best winner) | `engine.ts:buildReallocation` | ✓ |
 | Per-channel breakdown | `metrics.ts:summarizeByChannel` | ✓ |
@@ -42,7 +43,7 @@ signal-loss and explainability pressures.
 
 ## Honest gaps (next cycles)
 
-- Time-series creative-fatigue (multi-period CTR decline) — engine uses a single period today.
+- Time-series creative-fatigue: period-over-period now shipped (`priorCtr` trend signal); multi-period (3+) CTR-decline modeling still pending.
 - LTV-weighted revenue input (first-party data trend).
 - Live OAuth pulls from each ad platform (CSV/seed today).
 - LLM-authored natural-language rationales over the deterministic core.

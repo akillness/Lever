@@ -330,3 +330,46 @@ describe("recommendation confidence", () => {
     }
   });
 });
+describe("trend creative fatigue (period-over-period)", () => {
+  it("fires REFRESH when CTR drops sharply vs the entity's own prior period, even above channel median", () => {
+    const { recommendations } = analyze([
+      // Lone entity → channel median == its own CTR, so the cross-sectional rule
+      // can never fire; only the prior-period trend signal can.
+      row({ id: "tf", spend: 1500, revenue: 1800, conversions: 45, clicks: 9000, impressions: 600000, priorCtr: 0.024 }),
+    ]);
+    const rec = recommendations[0];
+    expect(rec.action).toBe("REFRESH_CREATIVE");
+    // ctr 0.015 vs prior 0.024 → uplift capped at 0.5 → profit 300 × 0.5 = 150
+    expect(rec.projectedImpactUsd).toBe(150);
+    expect(rec.rationale).toMatch(/last period/i);
+  });
+
+  it("does NOT fire when the period-over-period decline is below the trigger", () => {
+    const { recommendations } = analyze([
+      // 0.015 vs 0.017 ≈ 12% drop < 25% trigger → hold.
+      row({ id: "mild", spend: 1500, revenue: 1800, conversions: 45, clicks: 9000, impressions: 600000, priorCtr: 0.017 }),
+    ]);
+    expect(recommendations[0].action).toBe("KEEP");
+  });
+
+  it("is backward compatible: no priorCtr and above median ⇒ KEEP (no spurious refresh)", () => {
+    const { recommendations } = analyze([
+      row({ id: "noprior", spend: 1500, revenue: 1800, conversions: 45, clicks: 9000, impressions: 600000 }),
+    ]);
+    expect(recommendations[0].action).toBe("KEEP");
+  });
+});
+
+describe("csv prior_ctr ingest", () => {
+  it("parses an optional prior_ctr column as a positive rate", () => {
+    const csv = "campaign,platform,cost,conversion_value,clicks,impressions,prior_ctr\nUGC,TikTok,1500,1800,9000,600000,0.024";
+    const [r] = parseCsv(csv);
+    expect(r.priorCtr).toBe(0.024);
+  });
+
+  it("leaves priorCtr undefined when the column is absent or non-positive", () => {
+    expect(parseCsv("campaign,platform,cost\nX,Meta,500")[0].priorCtr).toBeUndefined();
+    const [z] = parseCsv("campaign,platform,cost,prior_ctr\nY,Meta,500,0");
+    expect(z.priorCtr).toBeUndefined();
+  });
+});
