@@ -7,7 +7,7 @@
 **Turn four fragmented ad dashboards into one ranked "do this next" list — every move shown with the math and a projected dollar impact.**
 
 [![Build](https://img.shields.io/badge/build-passing-brightgreen)](#-verify-it-yourself)
-[![Tests](https://img.shields.io/badge/tests-14%20passing-brightgreen)](src/lib/engine.test.ts)
+[![Tests](https://img.shields.io/badge/tests-38%20passing-brightgreen)](src/lib/engine.test.ts)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Deploy](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://vercel.com)
@@ -32,7 +32,11 @@ Lever is the **decision brain** that sits on top of your spend:
 - 📥 **Ingests** normalized performance from every channel (CSV upload or a seeded demo).
 - 🧮 **Computes** what actually matters to a list-builder: **CPA, EPC, ROAS, profit** — not vanity metrics.
 - 🎯 **Recommends** the highest-leverage moves — **Pause · Scale · Refresh creative · Reallocate** —
-  each ranked by **projected dollar impact** and backed by a transparent formula.
+  each ranked by **projected dollar impact**, a **confidence** score, and a transparent formula.
+- 🩸 **Catches budget leaks** — spend burning with zero conversions is flagged as the *most urgent* move.
+- 🧭 **Scores the account** with a single 0–100 **health** number and a **per-channel breakdown** for the exec view.
+- 🎛️ **What-if simulator** — tune the engine's thresholds live and watch the action feed re-rank.
+- 📤 **Exports** the ranked actions to CSV for ad-ops, and **persists** datasets (in-memory → Firestore).
 - 🤝 **Argues for itself**: every recommendation shows the math, so a buyer can act on it *and defend it*.
 
 > It doesn't optimize vanity ROAS. It optimizes **profit against target** — the affiliate north-star.
@@ -46,7 +50,7 @@ Lever is the **decision brain** that sits on top of your spend:
 | Black-box "AI suggestions" | **Deterministic + explainable** — every move shows its formula |
 
 The core is an **explainable, profit-objective recommendation engine**: pure, deterministic,
-14 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
+38 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
 
 ## Quickstart
 
@@ -69,22 +73,25 @@ curl -X POST http://localhost:3000/api/analyze \
 ## 🔬 Verify it yourself
 
 ```bash
-npm test             # 14 passing — engine rules, metrics, CSV parsing
+npm test             # 38 passing — engine rules, metrics, confidence, storage, CSV, export
 npm run build        # production build + full TypeScript check
 ```
 
-On the seeded dataset the engine flags **$6,567 of projected impact** across the portfolio —
-pausing two money-losers, scaling three winners, and reallocating budget between them.
+On the seeded dataset the engine flags **$9,567 of projected impact** across the portfolio —
+catching a budget leak (spend with zero conversions), pausing money-losers, scaling winners,
+reallocating budget, and scoring overall account health at 76/100.
 
 ## Architecture
 
 ```
-src/lib/engine.ts      ← the core: profit-objective recommendation engine (deterministic)
-src/lib/metrics.ts     ← pure metric derivations (CPA, EPC, ROAS, profit, …)
-src/lib/csv.ts         ← schema-tolerant CSV → canonical rows
-src/lib/storage.ts     ← StorageAdapter seam (in-memory now, Firestore/Supabase ready)
-src/app/page.tsx       ← dashboard: KPIs → prioritized action feed
-src/app/api/analyze    ← server route / agent entry point
+src/lib/engine.ts       ← the core: profit-objective recommendation engine + account health (deterministic)
+src/lib/metrics.ts      ← pure metric derivations (CPA, EPC, ROAS, …) + confidence + channel rollup
+src/lib/csv.ts          ← schema-tolerant CSV → canonical rows + untrusted-payload sanitizer
+src/lib/export.ts       ← ranked recommendations → escaped CSV
+src/lib/storage.ts      ← StorageAdapter seam (in-memory ↔ Firestore, env-selected, memoized)
+src/app/page.tsx        ← dashboard: KPIs, health, channel breakdown, what-if sliders, action feed
+src/app/api/analyze     ← analyze + optional persist (agent/MCP entry point)
+src/app/api/datasets    ← list persisted datasets
 ```
 
 ## Going to production

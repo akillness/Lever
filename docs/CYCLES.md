@@ -22,3 +22,4 @@ Each entry = one full jeo cycle (change → build → test → real-operation ve
 | 16 | Account health score | exec-level 0..100 portfolio health (ROAS vs target + budget discipline) in engine + KPI + 3 tests | build ✓ · 38 tests ✓ |
 | 17 | Demo realism | added a budget-leak entity to seed data; top action now PAUSE $2,400, impact $9,567, health 76 | build ✓ · 38 tests ✓ · live verified |
 | 18 | Survey + lint gate | `docs/04-survey-differentiation.md` feature inventory + competitive table; eslint clean | lint ✓ (0 errors) |
+| 19 | README marketing | refreshed badges (38 tests), feature bullets (leak/health/what-if/export/persist), architecture + impact ($9,567) | docs |
