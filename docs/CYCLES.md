@@ -15,3 +15,4 @@ Each entry = one full jeo cycle (change → build → test → real-operation ve
 | 9 | Export | `recommendationsToCsv` (escaped) + UI "Export CSV" download + 3 tests | build ✓ · 29 tests ✓ |
 | 10 | Budget-leak rule | new most-urgent PAUSE for high-spend/zero-conversion waste (closed a "hold a burning campaign" gap) + 2 tests | build ✓ · 31 tests ✓ |
 | 11 | Input hardening | clamp negatives in CSV + `sanitizeAdRows` untrusted-payload guard in API + 4 tests | build ✓ · 34 tests ✓ |
+| 12 | SEO/marketing meta | OpenGraph + Twitter card + keywords + metadataBase in layout | build ✓ |

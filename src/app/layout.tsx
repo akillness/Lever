@@ -13,9 +13,34 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://lever.vercel.app"),
   title: "Lever — the media buyer's profit copilot",
   description:
-    "Turn fragmented cross-platform ad performance into one ranked, dollar-backed action list.",
+    "Turn fragmented cross-platform ad performance into one ranked, dollar-backed action list. Pause leaks, scale winners, refresh fatigued creative — each move shown with the math.",
+  keywords: [
+    "media buying",
+    "affiliate marketing",
+    "ROAS",
+    "ad optimization",
+    "profit",
+    "Google Ads",
+    "Meta",
+    "Taboola",
+    "TikTok",
+  ],
+  openGraph: {
+    title: "Lever — the media buyer's profit copilot",
+    description:
+      "One ranked, dollar-backed action list across Google, Meta, Taboola, and TikTok. Explainable, profit-objective, deterministic.",
+    type: "website",
+    siteName: "Lever",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Lever — the media buyer's profit copilot",
+    description:
+      "Pause leaks, scale winners, refresh fatigued creative — each move shown with the math.",
+  },
 };
 
 export default function RootLayout({
