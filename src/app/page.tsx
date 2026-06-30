@@ -114,6 +114,7 @@ export default function Home() {
             <input
               type="file"
               accept=".csv,text/csv"
+              aria-label="Upload ad-platform CSV export"
               className="hidden"
               onChange={onUpload}
             />
@@ -126,7 +127,8 @@ export default function Home() {
           </button>
           <button
             onClick={exportCsv}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            disabled={recommendations.length === 0}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Export CSV
           </button>
@@ -220,6 +222,23 @@ export default function Home() {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
           Prioritized actions
         </h2>
+        {recommendations.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
+            <p className="text-sm font-semibold text-slate-700">No data yet</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Upload a CSV export from any ad platform, or reset to the seeded demo.
+            </p>
+          </div>
+        ) : actionable.length === 0 ? (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center">
+            <p className="text-sm font-semibold text-emerald-800">
+              All clear — no high-leverage moves right now.
+            </p>
+            <p className="mt-1 text-sm text-emerald-700">
+              Every entity is healthy or below the action threshold. Hold and monitor.
+            </p>
+          </div>
+        ) : null}
         <ul className="space-y-3">
           {recommendations.map((r) => (
             <li
