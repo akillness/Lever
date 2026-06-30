@@ -104,6 +104,18 @@ export const SAMPLE_DATA: AdRow[] = [
     impressions: 38000,
     date: "2026-06-01",
   },
+  // BUDGET LEAK: real spend, zero conversions — the most urgent PAUSE.
+  {
+    id: "g-2",
+    name: "Google · Mortgage Refi — Phrase",
+    channel: "google",
+    spend: 2400,
+    revenue: 0,
+    conversions: 0,
+    clicks: 1800,
+    impressions: 96000,
+    date: "2026-06-01",
+  },
 ];
 
 /** CSV string of the sample dataset, used to demo the upload path. */

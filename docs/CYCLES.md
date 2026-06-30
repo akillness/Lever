@@ -20,3 +20,4 @@ Each entry = one full jeo cycle (change → build → test → real-operation ve
 | 14 | Deploy readiness | `.env.example` (Firebase trio), `.nvmrc`, `engines.node>=20` | build ✓ |
 | 15 | Datasets API + store singleton | `GET /api/datasets` list; memoized `createStorage` (fixed per-request reset bug) + test | build ✓ · 35 tests ✓ · live list count=2 |
 | 16 | Account health score | exec-level 0..100 portfolio health (ROAS vs target + budget discipline) in engine + KPI + 3 tests | build ✓ · 38 tests ✓ |
+| 17 | Demo realism | added a budget-leak entity to seed data; top action now PAUSE $2,400, impact $9,567, health 76 | build ✓ · 38 tests ✓ · live verified |
