@@ -10,10 +10,15 @@
 [![Tests](https://img.shields.io/badge/tests-81%20passing-brightgreen)](src/lib/engine.test.ts)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Deploy](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://vercel.com)
+[![Deploy](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://lever-sepia.vercel.app)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Engine](https://img.shields.io/badge/engine-deterministic%20%C2%B7%20explainable-8957e5)](src/lib/engine.ts)
 [![Objective](https://img.shields.io/badge/objective-profit%20vs%20target-f5b301)](#why-it-wins)
+[![Live](https://img.shields.io/badge/▶_live_demo-lever--sepia.vercel.app-success?logo=vercel&logoColor=white)](https://lever-sepia.vercel.app)
+
+<br/>
+
+### 🌐 Live: **[lever-sepia.vercel.app](https://lever-sepia.vercel.app)**
 
 <br/>
 
@@ -107,10 +112,12 @@ src/app/api/datasets    ← list persisted datasets
 
 ## Going to production
 
-- **Deploy**: `vercel` — it's a stock Next.js app, zero config.
-- **Persistence**: implement `FirestoreStorage` (or Supabase) against the existing
-  `StorageAdapter` interface in `src/lib/storage.ts`; the engine and UI need **zero changes**.
-  Provide credentials via Vercel environment variables.
+- **Deployed**: live on Vercel at **[lever-sepia.vercel.app](https://lever-sepia.vercel.app)** —
+  a stock Next.js app, zero config. Reproduce with `vercel --prod`.
+- **Persistence**: `FirestoreStorage` is already implemented against the `StorageAdapter`
+  interface in `src/lib/storage.ts`; the engine and UI need **zero changes**. Set
+  `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY` as Vercel
+  environment variables and `createStorage()` switches from in-memory to Firestore automatically.
 - **Live data**: swap the CSV/seed ingest for OAuth pulls from each ad platform behind the same
   `AdRow[]` contract.
 
