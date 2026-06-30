@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { analyze } from "@/lib/engine";
+import { analyze, DEFAULT_CONFIG } from "@/lib/engine";
 import { parseCsv } from "@/lib/csv";
 import { SAMPLE_DATA } from "@/lib/sampleData";
-import type { AdRow, RecommendationAction } from "@/lib/types";
+import type { AdRow, EngineConfig, RecommendationAction } from "@/lib/types";
 
 const usd = (n: number) =>
   new Intl.NumberFormat("en-US", {
@@ -31,8 +31,9 @@ export default function Home() {
   const [rows, setRows] = useState<AdRow[]>(SAMPLE_DATA);
   const [source, setSource] = useState("Seeded demo dataset");
   const [error, setError] = useState<string | null>(null);
+  const [config, setConfig] = useState<EngineConfig>(DEFAULT_CONFIG);
 
-  const result = useMemo(() => analyze(rows), [rows]);
+  const result = useMemo(() => analyze(rows, config), [rows, config]);
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -113,6 +114,49 @@ export default function Home() {
         </div>
         <p className="w-full text-xs text-slate-500">Source: {source}</p>
         {error && <p className="w-full text-xs text-red-600">{error}</p>}
+      </section>
+
+      <section className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            What-if · tune the engine
+          </h2>
+          <button
+            onClick={() => setConfig(DEFAULT_CONFIG)}
+            className="text-xs font-semibold text-slate-500 hover:text-slate-900"
+          >
+            Reset
+          </button>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Slider
+            label="Target ROAS"
+            value={config.targetRoas}
+            min={0.5}
+            max={3}
+            step={0.05}
+            format={(v) => `${v.toFixed(2)}x`}
+            onChange={(targetRoas) => setConfig((c) => ({ ...c, targetRoas }))}
+          />
+          <Slider
+            label="Scale trigger"
+            value={config.scaleTrigger}
+            min={1}
+            max={2}
+            step={0.05}
+            format={(v) => `${v.toFixed(2)}×`}
+            onChange={(scaleTrigger) => setConfig((c) => ({ ...c, scaleTrigger }))}
+          />
+          <Slider
+            label="Scale step"
+            value={config.scaleStep}
+            min={0.1}
+            max={0.6}
+            step={0.05}
+            format={(v) => `${Math.round(v * 100)}%`}
+            onChange={(scaleStep) => setConfig((c) => ({ ...c, scaleStep }))}
+          />
+        </div>
       </section>
 
       <section className="mb-6">
@@ -224,5 +268,41 @@ function Kpi({
       <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
       <div className={`mt-1 text-xl font-bold ${color}`}>{value}</div>
     </div>
+  );
+}
+
+function Slider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  format,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  format: (v: number) => string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <label className="block">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-medium text-slate-600">{label}</span>
+        <span className="font-bold text-slate-900">{format(value)}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="mt-1 w-full accent-slate-900"
+      />
+    </label>
   );
 }
