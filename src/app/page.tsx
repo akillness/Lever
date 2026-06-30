@@ -5,7 +5,7 @@ import { analyze, DEFAULT_CONFIG } from "@/lib/engine";
 import { parseCsv } from "@/lib/csv";
 import { recommendationsToCsv } from "@/lib/export";
 import { SAMPLE_DATA } from "@/lib/sampleData";
-import type { AdRow, EngineConfig, RecommendationAction } from "@/lib/types";
+import type { AdRow, EngineConfig, Recommendation, RecommendationAction } from "@/lib/types";
 
 /** Reject pathological uploads before they block the main thread during a live demo. */
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -91,6 +91,7 @@ export default function Home() {
 
   const { totals, recommendations, reallocation, byChannel } = result;
   const actionable = recommendations.filter((r) => r.action !== "KEEP");
+  const held = recommendations.filter((r) => r.action === "KEEP");
 
   return (
     <>
@@ -294,44 +295,34 @@ export default function Home() {
               Every entity is healthy or below the action threshold. Hold and monitor.
             </p>
           </div>
-        ) : null}
-        <ul className="space-y-3">
-          {recommendations.map((r) => (
-            <li
-              key={r.entityId}
-              className="rounded-xl border border-slate-200 bg-white p-4"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-md px-2 py-0.5 text-xs font-bold uppercase ring-1 ring-inset ${ACTION_STYLES[r.action]}`}
-                >
-                  {ACTION_LABEL[r.action]}
-                </span>
-                <span className="font-semibold text-slate-900">{r.entityName}</span>
-                <span className="text-xs uppercase text-slate-500">{r.channel}</span>
-                <span
-                  className="text-xs font-medium tabular-nums text-slate-500"
-                  title="Confidence from spend depth & conversion volume"
-                >
-                  {Math.round(r.confidence * 100)}% conf
-                </span>
-                {r.projectedImpactUsd > 0 && (
-                  <span className="ml-auto text-sm font-bold tabular-nums text-emerald-700">
-                    +{usd(r.projectedImpactUsd)}
-                  </span>
-                )}
-              </div>
-              <p className="mt-2 text-sm text-slate-600">{r.rationale}</p>
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums text-slate-500">
-                <span>ROAS {r.metrics.roas}×</span>
-                <span>CPA {usd(r.metrics.cpa)}</span>
-                <span>EPC {usd(r.metrics.epc)}</span>
-                <span>CTR {(r.metrics.ctr * 100).toFixed(2)}%</span>
-                <span>Profit {usd(r.metrics.profit)}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
+        ) : (
+          <ol className="space-y-3">
+            {actionable.map((r, i) => (
+              <RecommendationCard key={r.entityId} r={r} rank={i + 1} />
+            ))}
+          </ol>
+        )}
+        {held.length > 0 && (
+          <details className="group mt-3 rounded-xl border border-slate-200 bg-white">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-600 marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2">
+              <span
+                className="text-slate-400 transition-transform group-open:rotate-90"
+                aria-hidden
+              >
+                ▸
+              </span>
+              Held — no action
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold tabular-nums text-slate-500 ring-1 ring-inset ring-slate-500/20">
+                {held.length}
+              </span>
+            </summary>
+            <ul className="space-y-3 px-4 pb-4">
+              {held.map((r) => (
+                <RecommendationCard key={r.entityId} r={r} />
+              ))}
+            </ul>
+          </details>
+        )}
       </section>
 
       <footer className="mt-10 text-center text-xs text-slate-500">
@@ -343,6 +334,51 @@ export default function Home() {
   );
 }
 
+/**
+ * One recommendation row — shared by the ranked actionable feed and the
+ * collapsed "Held" group so both render identically. Pass `rank` to show the
+ * 1-based position badge (the actionable feed is a semantic <ol>, so the badge
+ * is aria-hidden to avoid double-announcing list position).
+ */
+function RecommendationCard({ r, rank }: { r: Recommendation; rank?: number }) {
+  return (
+    <li className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {rank !== undefined && (
+          <span className="text-xs font-bold tabular-nums text-slate-400" aria-hidden>
+            #{rank}
+          </span>
+        )}
+        <span
+          className={`rounded-md px-2 py-0.5 text-xs font-bold uppercase ring-1 ring-inset ${ACTION_STYLES[r.action]}`}
+        >
+          {ACTION_LABEL[r.action]}
+        </span>
+        <span className="font-semibold text-slate-900">{r.entityName}</span>
+        <span className="text-xs uppercase text-slate-500">{r.channel}</span>
+        <span
+          className="text-xs font-medium tabular-nums text-slate-500"
+          title="Confidence from spend depth & conversion volume"
+        >
+          {Math.round(r.confidence * 100)}% conf
+        </span>
+        {r.projectedImpactUsd > 0 && (
+          <span className="ml-auto text-sm font-bold tabular-nums text-emerald-700">
+            +{usd(r.projectedImpactUsd)}
+          </span>
+        )}
+      </div>
+      <p className="mt-2 text-sm text-slate-600">{r.rationale}</p>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums text-slate-500">
+        <span>ROAS {r.metrics.roas}×</span>
+        <span>CPA {usd(r.metrics.cpa)}</span>
+        <span>EPC {usd(r.metrics.epc)}</span>
+        <span>CTR {(r.metrics.ctr * 100).toFixed(2)}%</span>
+        <span>Profit {usd(r.metrics.profit)}</span>
+      </div>
+    </li>
+  );
+}
 function Kpi({
   label,
   value,
