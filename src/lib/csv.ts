@@ -21,7 +21,8 @@ function normalizeChannel(value: string): Channel {
     return "meta";
   if (v.includes("taboola")) return "taboola";
   if (v.includes("tiktok") || v === "tt") return "tiktok";
-  return (CHANNELS.includes(v as Channel) ? v : "google") as Channel;
+  // Unrecognized platforms are tagged "other" — never silently misattributed.
+  return (CHANNELS.includes(v as Channel) ? v : "other") as Channel;
 }
 
 function toNumber(value: string | undefined): number {

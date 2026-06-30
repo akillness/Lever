@@ -1,8 +1,8 @@
 // Canonical domain types for Lever — the media buyer's profit copilot.
 
-export type Channel = "google" | "meta" | "taboola" | "tiktok";
+export type Channel = "google" | "meta" | "taboola" | "tiktok" | "other";
 
-export const CHANNELS: Channel[] = ["google", "meta", "taboola", "tiktok"];
+export const CHANNELS: Channel[] = ["google", "meta", "taboola", "tiktok", "other"];
 
 /** A normalized ad entity (campaign / ad set) for a reporting period. */
 export interface AdRow {

@@ -13,6 +13,8 @@ import type { AdRow } from "@/lib/types";
  */
 export async function POST(request: Request) {
   let rows: AdRow[] = SAMPLE_DATA;
+  let persist = false;
+  let name = "";
   try {
     const body = (await request.json().catch(() => ({}))) as {
       rows?: AdRow[];
@@ -27,19 +29,29 @@ export async function POST(request: Request) {
       const parsed = parseCsv(body.csv);
       if (parsed.length > 0) rows = parsed;
     }
-    const result = analyze(rows);
-    if (body.persist) {
-      const saved = await createStorage().saveDataset(
-        body.name?.trim() || `dataset-${new Date().toISOString()}`,
-        rows,
-      );
-      return NextResponse.json({ ...result, datasetId: saved.id });
-    }
-    return NextResponse.json(result);
+    persist = body.persist === true;
+    name = body.name?.trim() || `dataset-${new Date().toISOString()}`;
   } catch {
-    // fall back to the seeded dataset
+    // Malformed body — analyze the seeded dataset instead.
   }
-  return NextResponse.json(analyze(rows));
+
+  const result = analyze(rows);
+  if (!persist) return NextResponse.json(result);
+
+  // Persist in its own boundary: a storage failure must NOT masquerade as success.
+  try {
+    const saved = await createStorage().saveDataset(name, rows);
+    return NextResponse.json({ ...result, persisted: true, datasetId: saved.id });
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ...result,
+        persisted: false,
+        error: err instanceof Error ? err.message : "Failed to persist dataset.",
+      },
+      { status: 502 },
+    );
+  }
 }
 
 /** GET returns an analysis of the seeded dataset — handy for a quick health check. */

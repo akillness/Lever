@@ -116,6 +116,17 @@ describe("engine rules", () => {
     expect(recommendations[0].rationale).toMatch(/insufficient signal/i);
   });
 
+  it("PAUSEs a high-spend money-loser even with thin conversion signal (never 'healthy')", () => {
+    const { recommendations } = analyze([
+      row({ id: "thin", spend: 1000, revenue: 400, conversions: 3, clicks: 800, impressions: 50000 }),
+    ]);
+    const rec = recommendations[0];
+    expect(rec.action).toBe("PAUSE"); // not KEEP "healthy"
+    expect(rec.projectedImpactUsd).toBe(600);
+    expect(rec.rationale).toMatch(/thin signal/i);
+    expect(rec.confidence).toBeLessThan(0.6); // low confidence flagged
+  });
+
   it("flags a BUDGET LEAK (high spend, zero conversions) as the most urgent PAUSE", () => {
     const { recommendations } = analyze([
       row({ id: "leak", spend: 2000, revenue: 0, conversions: 0, clicks: 500, impressions: 40000 }),
@@ -190,6 +201,21 @@ describe("engine rules", () => {
     expect(reallocation).not.toBeNull();
     expect(reallocation!.fromEntityId).toBe("p");
     expect(reallocation!.toEntityId).toBe("s");
+    // moves the loser's actual freed spend ($1000), not a derived proxy
+    expect(reallocation!.amountUsd).toBe(1000);
+    // net profit redeploying $1000 at ROAS 2 × 0.8 efficiency − 1 = $600
+    expect(reallocation!.projectedImpactUsd).toBe(600);
+  });
+
+  it("does NOT double-count reallocation into the headline projected impact", () => {
+    const { totals, recommendations, reallocation } = analyze([
+      row({ id: "s", spend: 1000, revenue: 2000, conversions: 50, clicks: 1000, impressions: 30000 }),
+      row({ id: "p", spend: 1000, revenue: 400, conversions: 20, clicks: 800, impressions: 50000 }),
+    ]);
+    const recSum = recommendations.reduce((n, r) => n + r.projectedImpactUsd, 0);
+    expect(totals.projectedImpactUsd).toBe(Math.round(recSum * 100) / 100);
+    // reallocation is reported separately and is non-zero here
+    expect(reallocation!.projectedImpactUsd).toBeGreaterThan(0);
   });
 
   it("computes portfolio totals from the raw rows", () => {
@@ -218,6 +244,13 @@ describe("csv parsing", () => {
     expect(rows[0].revenue).toBe(2500);
     expect(rows[0].conversions).toBe(40);
   });
+
+  it("tags an unrecognized platform as 'other' (no silent misattribution)", () => {
+    const csv = "campaign,platform,cost,conversion_value\nBing Test,Microsoft Bing,500,800";
+    const [r] = parseCsv(csv);
+    expect(r.channel).toBe("other");
+  });
+
 
   it("returns empty for header-only or blank input", () => {
     expect(parseCsv("")).toEqual([]);

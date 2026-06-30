@@ -67,8 +67,10 @@ export function analyze(
       continue;
     }
 
-    // PAUSE — stop the bleed on a losing, high-signal entity.
-    if (m.profit < 0 && hasSpendSignal && row.conversions >= cfg.minConversions) {
+    // PAUSE — stop the bleed on any losing, high-spend entity. Thin-signal losers
+    // still surface (a money-loser is never "healthy"); their confidence reflects it.
+    if (m.profit < 0 && hasSpendSignal) {
+      const thin = row.conversions < cfg.minConversions;
       recommendations.push({
         entityId: row.id,
         entityName: row.name,
@@ -79,7 +81,10 @@ export function analyze(
         rationale:
           `Losing money: ROAS ${m.roas} (< breakeven ${cfg.targetRoas}), ` +
           `profit $${m.profit} on $${row.spend} spend. ` +
-          `Pausing stops ~$${round(Math.abs(m.profit))} of loss this period.`,
+          `Pausing stops ~$${round(Math.abs(m.profit))} of loss this period.` +
+          (thin
+            ? ` Thin signal (${row.conversions} conv) — low confidence; verify before pausing.`
+            : ""),
         confidence,
         metrics: m,
       });
@@ -161,14 +166,17 @@ export function analyze(
       b.projectedImpactUsd - a.projectedImpactUsd || b.severity - a.severity,
   );
 
-  const reallocation = buildReallocation(recommendations, cfg);
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const reallocation = buildReallocation(recommendations, byId, cfg);
 
   const spend = round(rows.reduce((s, r) => s + r.spend, 0));
   const revenue = round(rows.reduce((s, r) => s + r.revenue, 0));
   const profit = round(revenue - spend);
+  // Headline impact = the ranked recommendations only. Reallocation is an
+  // alternative framing of redeploying the SAME freed budget, so it is reported
+  // separately (in `reallocation`) and never double-counted into this number.
   const projectedImpactUsd = round(
-    recommendations.reduce((s, r) => s + r.projectedImpactUsd, 0) +
-      (reallocation?.projectedImpactUsd ?? 0),
+    recommendations.reduce((s, r) => s + r.projectedImpactUsd, 0),
   );
 
   return {
@@ -217,20 +225,26 @@ export function accountHealth(
 }
 
 /**
- * Portfolio reallocation: take budget freed by the top PAUSE candidate and
- * direct it to the top SCALE candidate, projecting the net swing.
+ * Portfolio reallocation: redeploy the budget actually freed by the top PAUSE
+ * candidate into the top SCALE candidate, and project the net incremental profit
+ * on that real freed budget (winner's ROAS × marginal efficiency − 1).
  */
 function buildReallocation(
   recs: Recommendation[],
+  byId: Map<string, AdRow>,
   cfg: EngineConfig,
 ): PortfolioReallocation | null {
   const pause = recs.find((r) => r.action === "PAUSE");
   const scale = recs.find((r) => r.action === "SCALE");
   if (!pause || !scale) return null;
 
-  const amount = round(scale.metrics.profit > 0 ? scale.projectedImpactUsd / cfg.scaleStep : 0);
-  const movedSpend = round(Math.min(pause.projectedImpactUsd, scale.metrics.roas > 0 ? amount : 0) || pause.projectedImpactUsd);
-  const projected = round(movedSpend * (scale.metrics.roas * cfg.marginalEfficiency - 1));
+  // The freed budget is the loser's actual spend — the dollars you stop wasting.
+  const freedBudget = byId.get(pause.entityId)?.spend ?? 0;
+  const movedSpend = round(freedBudget);
+  const projected = Math.max(
+    0,
+    round(movedSpend * (scale.metrics.roas * cfg.marginalEfficiency - 1)),
+  );
 
   return {
     fromEntityId: pause.entityId,
@@ -238,10 +252,10 @@ function buildReallocation(
     toEntityId: scale.entityId,
     toEntityName: scale.entityName,
     amountUsd: movedSpend,
-    projectedImpactUsd: projected > 0 ? projected : 0,
+    projectedImpactUsd: projected,
     rationale:
-      `Reallocate ~$${movedSpend} from "${pause.entityName}" (${pause.channel}, losing) ` +
-      `to "${scale.entityName}" (${scale.channel}, ROAS ${scale.metrics.roas}) ` +
-      `for ~$${projected > 0 ? projected : 0} projected net profit.`,
+      `Reallocate the ~$${movedSpend} freed from "${pause.entityName}" (${pause.channel}, losing) ` +
+      `into "${scale.entityName}" (${scale.channel}, ROAS ${scale.metrics.roas}) ` +
+      `for ~$${projected} projected net profit at ${cfg.marginalEfficiency * 100}% marginal efficiency.`,
   };
 }
