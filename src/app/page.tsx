@@ -142,10 +142,10 @@ export default function Home() {
       <section className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-4">
         <div className="text-sm">
           <span className="font-semibold text-slate-900">Projected impact: </span>
-          <span className="font-bold text-emerald-700">
+          <span className="font-bold tabular-nums text-emerald-700">
             {usd(totals.projectedImpactUsd)}
           </span>
-          <span className="text-slate-500"> across {actionable.length} actions</span>
+          <span className="tabular-nums text-slate-500"> across {actionable.length} actions</span>
         </div>
         <div className="ml-auto flex items-center gap-3">
           <label
@@ -245,15 +245,15 @@ export default function Home() {
                   {c.channel}
                 </span>
                 <span
-                  className={`text-xs font-bold ${c.profit >= 0 ? "text-emerald-700" : "text-red-700"}`}
+                  className={`text-xs font-bold tabular-nums ${c.profit >= 0 ? "text-emerald-700" : "text-red-700"}`}
                 >
                   {c.roas.toFixed(2)}x
                 </span>
               </div>
-              <div className="mt-1 text-xs text-slate-500">
+              <div className="mt-1 text-xs tabular-nums text-slate-500">
                 {usd(c.spend)} spend · {usd(c.profit)} profit
               </div>
-              <div className="text-xs text-slate-400">{c.entities} entities</div>
+              <div className="text-xs tabular-nums text-slate-400">{c.entities} entities</div>
             </div>
           ))}
         </div>
@@ -261,7 +261,7 @@ export default function Home() {
 
       {reallocation && (
         <section className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
-          <div className="text-sm font-semibold text-indigo-900">
+          <div className="text-sm font-semibold tabular-nums text-indigo-900">
             Portfolio reallocation · {usd(reallocation.projectedImpactUsd)} projected
           </div>
           <p className="mt-1 text-sm text-indigo-800">{reallocation.rationale}</p>
@@ -304,19 +304,19 @@ export default function Home() {
                 <span className="font-semibold text-slate-900">{r.entityName}</span>
                 <span className="text-xs uppercase text-slate-400">{r.channel}</span>
                 <span
-                  className="text-xs font-medium text-slate-400"
+                  className="text-xs font-medium tabular-nums text-slate-400"
                   title="Confidence from spend depth & conversion volume"
                 >
                   {Math.round(r.confidence * 100)}% conf
                 </span>
                 {r.projectedImpactUsd > 0 && (
-                  <span className="ml-auto text-sm font-bold text-emerald-700">
+                  <span className="ml-auto text-sm font-bold tabular-nums text-emerald-700">
                     +{usd(r.projectedImpactUsd)}
                   </span>
                 )}
               </div>
               <p className="mt-2 text-sm text-slate-600">{r.rationale}</p>
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums text-slate-500">
                 <span>ROAS {r.metrics.roas}x</span>
                 <span>CPA {usd(r.metrics.cpa)}</span>
                 <span>EPC {usd(r.metrics.epc)}</span>
@@ -355,7 +355,7 @@ function Kpi({
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-      <div className={`mt-1 text-xl font-bold ${color}`}>{value}</div>
+      <div className={`mt-1 text-xl font-bold tabular-nums ${color}`}>{value}</div>
     </div>
   );
 }
@@ -381,7 +381,7 @@ function Slider({
     <label className="block">
       <div className="flex items-center justify-between text-xs">
         <span className="font-medium text-slate-600">{label}</span>
-        <span className="font-bold text-slate-900">{format(value)}</span>
+        <span className="font-bold tabular-nums text-slate-900">{format(value)}</span>
       </div>
       <input
         type="range"

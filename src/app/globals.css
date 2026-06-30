@@ -42,5 +42,14 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Render the brand sans (Geist, loaded by next/font in layout.tsx and exposed
+     as --font-geist-sans on <html>). The previous hard-coded "Arial" silently
+     overrode it, so the loaded brand typeface never reached body text. */
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
+
+/* Financial figures (money, ROAS, percentages) use tabular numerals so digits
+   share a fixed advance width — columns line up and values don't shift sideways
+   as the what-if sliders recompute them. Applied in the JSX via Tailwind's
+   built-in `tabular-nums` utility; reinforces the deterministic identity. */
