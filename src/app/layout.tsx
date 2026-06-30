@@ -12,8 +12,28 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/**
+ * Resolve the canonical site origin for absolute OG / Twitter / canonical URLs.
+ * On Vercel this is derived from system env vars, so production and preview
+ * deployments always emit correct absolute URLs without hardcoding a domain:
+ *  - NEXT_PUBLIC_SITE_URL        explicit override (custom domain / self-host)
+ *  - VERCEL_PROJECT_PRODUCTION_URL  stable production domain, present on every
+ *                                deployment (custom domain or <project>.vercel.app)
+ *  - VERCEL_URL                  unique per-deployment URL (preview deploys)
+ * Falls back to localhost for `next dev` / `next start` outside Vercel.
+ */
+function resolveSiteUrl(): URL {
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL;
+  if (explicit) return new URL(explicit);
+  const production = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  if (production) return new URL(`https://${production}`);
+  const deployment = process.env.VERCEL_URL;
+  if (deployment) return new URL(`https://${deployment}`);
+  return new URL("http://localhost:3000");
+}
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://lever.vercel.app"),
+  metadataBase: resolveSiteUrl(),
   title: "Lever — the media buyer's profit copilot",
   description:
     "Turn fragmented cross-platform ad performance into one ranked, dollar-backed action list. Pause leaks, scale winners, refresh fatigued creative — each move shown with the math.",
