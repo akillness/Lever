@@ -49,6 +49,24 @@ export function analyze(
       cfg.minConversions,
     );
 
+    // BUDGET LEAK — meaningful spend with zero conversions: pure waste, most urgent.
+    if (hasSpendSignal && row.conversions === 0) {
+      recommendations.push({
+        entityId: row.id,
+        entityName: row.name,
+        channel: row.channel,
+        action: "PAUSE",
+        severity: 4,
+        projectedImpactUsd: round(row.spend),
+        rationale:
+          `Budget leak: $${row.spend} spend, 0 conversions (ROAS ${m.roas}). ` +
+          `No signal of working — pausing recovers the full ~$${round(row.spend)}.`,
+        confidence,
+        metrics: m,
+      });
+      continue;
+    }
+
     // PAUSE — stop the bleed on a losing, high-signal entity.
     if (m.profit < 0 && hasSpendSignal && row.conversions >= cfg.minConversions) {
       recommendations.push({

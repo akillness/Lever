@@ -87,6 +87,25 @@ describe("engine rules", () => {
     expect(recommendations[0].rationale).toMatch(/insufficient signal/i);
   });
 
+  it("flags a BUDGET LEAK (high spend, zero conversions) as the most urgent PAUSE", () => {
+    const { recommendations } = analyze([
+      row({ id: "leak", spend: 2000, revenue: 0, conversions: 0, clicks: 500, impressions: 40000 }),
+    ]);
+    const rec = recommendations[0];
+    expect(rec.action).toBe("PAUSE");
+    expect(rec.severity).toBe(4); // outranks an ordinary loser (severity 3)
+    expect(rec.projectedImpactUsd).toBe(2000); // full spend recoverable
+    expect(rec.rationale).toMatch(/budget leak/i);
+  });
+
+  it("a budget leak outranks a smaller ordinary loss in the action feed", () => {
+    const { recommendations } = analyze([
+      row({ id: "loss", spend: 1000, revenue: 400, conversions: 20, clicks: 800, impressions: 50000 }),
+      row({ id: "leak", spend: 1200, revenue: 0, conversions: 0, clicks: 300, impressions: 20000 }),
+    ]);
+    expect(recommendations[0].entityId).toBe("leak"); // 1200 > 600
+  });
+
   it("SCALE fires on a strong performer with positive incremental profit", () => {
     const { recommendations } = analyze([
       row({ id: "s", spend: 1000, revenue: 2000, conversions: 50, clicks: 1000, impressions: 30000 }),
