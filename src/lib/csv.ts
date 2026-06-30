@@ -32,29 +32,58 @@ function toNumber(value: string | undefined): number {
   return Number.isFinite(n) ? Math.max(0, n) : 0;
 }
 
-/** Split a CSV line respecting double-quoted fields. */
-function splitLine(line: string): string[] {
-  const out: string[] = [];
-  let cur = "";
+/**
+ * Tokenize an entire CSV document into records, respecting RFC-4180 quoting:
+ * double-quoted fields may contain commas, embedded newlines, and "" escapes.
+ */
+function parseRecords(text: string): string[][] {
+  const records: string[][] = [];
+  let field = "";
+  let record: string[] = [];
   let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        cur += '"';
-        i++;
+  let started = false; // any char seen for the current record?
+  const pushField = () => {
+    record.push(field.trim());
+    field = "";
+  };
+  const pushRecord = () => {
+    pushField();
+    records.push(record);
+    record = [];
+    started = false;
+  };
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
       } else {
-        inQuotes = !inQuotes;
+        field += ch;
       }
-    } else if (ch === "," && !inQuotes) {
-      out.push(cur);
-      cur = "";
+      continue;
+    }
+    if (ch === '"') {
+      inQuotes = true;
+      started = true;
+    } else if (ch === ",") {
+      pushField();
+      started = true;
+    } else if (ch === "\n" || ch === "\r") {
+      // Swallow \r\n as a single break; end the record only if non-empty.
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      if (started || field.length > 0) pushRecord();
     } else {
-      cur += ch;
+      field += ch;
+      started = true;
     }
   }
-  out.push(cur);
-  return out.map((s) => s.trim());
+  if (started || field.length > 0 || record.length > 0) pushRecord();
+  return records;
 }
 
 function resolveIndex(headers: string[], aliases: string[]): number {
@@ -70,21 +99,18 @@ function resolveIndex(headers: string[], aliases: string[]): number {
  * Unknown rows are skipped; missing numerics default to 0.
  */
 export function parseCsv(text: string): AdRow[] {
-  const lines = text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-  if (lines.length < 2) return [];
+  const records = parseRecords(text);
+  if (records.length < 2) return [];
 
-  const headers = splitLine(lines[0]).map((h) => h.toLowerCase());
+  const headers = records[0].map((h) => h.toLowerCase());
   const idx = {} as Record<keyof AdRow, number>;
   (Object.keys(FIELD_ALIASES) as (keyof AdRow)[]).forEach((field) => {
     idx[field] = resolveIndex(headers, FIELD_ALIASES[field]);
   });
 
   const rows: AdRow[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cells = splitLine(lines[i]);
+  for (let i = 1; i < records.length; i++) {
+    const cells = records[i];
     const get = (field: keyof AdRow) =>
       idx[field] === -1 ? undefined : cells[idx[field]];
 

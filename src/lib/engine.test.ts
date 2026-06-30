@@ -263,6 +263,20 @@ describe("csv parsing", () => {
     expect(r.spend).toBe(0);
     expect(r.revenue).toBe(0);
   });
+
+  it("preserves quoted fields containing embedded newlines and commas", () => {
+    const csv = [
+      "campaign,platform,cost,conversion_value",
+      '"Summer Sale,\nLine Two",Meta,"1,200",3000',
+      "Plain,Google,800,1500",
+    ].join("\n");
+    const rows = parseCsv(csv);
+    expect(rows).toHaveLength(2);
+    expect(rows[0].name).toBe("Summer Sale,\nLine Two");
+    expect(rows[0].spend).toBe(1200);
+    expect(rows[1].name).toBe("Plain");
+    expect(rows[1].spend).toBe(800);
+  });
 });
 
 describe("sanitizeAdRows", () => {
