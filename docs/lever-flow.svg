@@ -84,7 +84,7 @@
   <text x="870" y="205" fill="#ffffff" font-size="16" font-weight="700" text-anchor="middle">Deterministic</text>
   <text x="870" y="226" fill="#ffffff" font-size="16" font-weight="700" text-anchor="middle">profit-objective</text>
   <text x="870" y="247" fill="#ffffff" font-size="16" font-weight="700" text-anchor="middle">rules</text>
-  <text x="870" y="276" fill="#f5b301" font-size="12.5" font-weight="600" text-anchor="middle">81 unit tests · explainable</text>
+  <text x="870" y="276" fill="#f5b301" font-size="12.5" font-weight="600" text-anchor="middle">89 unit tests · explainable</text>
   <text x="870" y="294" fill="#9aa6d6" font-size="12" text-anchor="middle">target-aware · leak-aware</text>
 
   <!-- Stage 5: actions -->

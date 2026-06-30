@@ -60,6 +60,19 @@ describe("POST /api/analyze", () => {
     expect(tuned.totals.revenue).toBe(2000);
   });
 
+  it("accepts a pacingThreshold override so a budget-capped winner is flagged server-side", async () => {
+    const cappedWinner = { ...subTargetRow, revenue: 2000, budget: 1100 }; // ROAS 2.0 → SCALE; 1000/1100 = 91%
+    const def = await (await post({ rows: [cappedWinner] })).json();
+    expect(def.recommendations[0].action).toBe("SCALE");
+    expect(def.recommendations[0].rationale).toMatch(/budget-capped/i); // 91% ≥ default 90%
+
+    const loose = await (
+      await post({ rows: [cappedWinner], config: { pacingThreshold: 0.95 } })
+    ).json();
+    // 91% pacing now below the 95% bar → no capped flag
+    expect(loose.recommendations[0].rationale).not.toMatch(/budget-capped/i);
+  });
+
   it("falls back to the seeded dataset on an empty/malformed body", async () => {
     const res = await (await post({})).json();
     expect(res.recommendations.length).toBeGreaterThan(0);

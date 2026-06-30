@@ -20,6 +20,7 @@ const CONFIG_KEYS: (keyof EngineConfig)[] = [
   "refreshCap",
   "minSpend",
   "minConversions",
+  "pacingThreshold",
 ];
 
 /** Accept only finite, non-negative numeric overrides; ignore everything else. */

@@ -14,6 +14,7 @@ const FIELD_ALIASES: Record<keyof AdRow, string[]> = {
   date: ["date", "day", "reporting_date"],
   priorCtr: ["prior_ctr", "previous_ctr", "ctr_prev", "last_ctr"],
   ltvPerConversion: ["ltv", "ltv_per_conversion", "value_per_conversion", "payout_ltv"],
+  budget: ["budget", "daily_budget", "budget_usd", "spend_cap", "cap"],
   ctrHistory: ["ctr_history", "ctrhistory", "ctr_series", "prior_ctrs"],
 };
 
@@ -43,6 +44,17 @@ function toNumber(value: string | undefined): number {
 function toOptionalRate(value: string | undefined): number | undefined {
   if (value == null || value.trim() === "") return undefined;
   const n = Number(value.trim());
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+/**
+ * Parse an optional positive dollar amount (e.g. a budget cap). Strips currency
+ * formatting; blank, non-numeric, or non-positive values mean "no cap set"
+ * (undefined), so the budget-pacing rule stays silent rather than reading a 0 cap.
+ */
+function toOptionalAmount(value: string | undefined): number | undefined {
+  if (value == null || value.trim() === "") return undefined;
+  const n = Number(value.replace(/[$,%\s]/g, ""));
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
@@ -156,6 +168,7 @@ export function parseCsv(text: string): AdRow[] {
       date: get("date") || undefined,
       priorCtr: toOptionalRate(get("priorCtr")),
       ltvPerConversion: toOptionalRate(get("ltvPerConversion")),
+      budget: toOptionalAmount(get("budget")),
       ctrHistory: toOptionalSeries(get("ctrHistory")),
     });
   }
@@ -170,6 +183,12 @@ function nonNeg(value: unknown): number {
 
 /** Coerce one untrusted value into a positive rate, or undefined (no signal). */
 function optRate(value: unknown): number | undefined {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+/** Coerce one untrusted value into a positive dollar amount, or undefined (no cap). */
+function optAmount(value: unknown): number | undefined {
   const n = typeof value === "number" ? value : Number(value);
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
@@ -205,6 +224,7 @@ export function sanitizeAdRows(input: unknown): AdRow[] {
       date: typeof r.date === "string" ? r.date : undefined,
       priorCtr: optRate(r.priorCtr),
       ltvPerConversion: optRate(r.ltvPerConversion),
+      budget: optAmount(r.budget),
       ctrHistory: optSeries(r.ctrHistory),
     });
   });

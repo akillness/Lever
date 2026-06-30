@@ -7,7 +7,7 @@
 **Turn four fragmented ad dashboards into one ranked "do this next" list — every move shown with the math and a projected dollar impact.**
 
 [![Build](https://img.shields.io/badge/build-passing-brightgreen)](#-verify-it-yourself)
-[![Tests](https://img.shields.io/badge/tests-81%20passing-brightgreen)](src/lib/engine.test.ts)
+[![Tests](https://img.shields.io/badge/tests-89%20passing-brightgreen)](src/lib/engine.test.ts)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Deploy](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://lever-sepia.vercel.app)
@@ -48,6 +48,7 @@ Lever is the **decision brain** that sits on top of your spend:
 - 🩸 **Catches budget leaks** — spend burning with zero conversions is flagged as the *most urgent* move.
 - 📉 **Detects creative fatigue three ways** — CTR below the channel median, a sharp single-period drop, *and* a sustained multi-period decline versus the creative's recent peak.
 - 💎 **Values first-party LTV** — feed a known lifetime value per conversion (per entity *or* a per-channel default) and the engine optimizes on *true downstream value*, not just immediately-attributed revenue.
+- 🚦 **Spots budget-capped winners** — a strong performer pinned near its spend cap is throttled demand, so the Scale call flags the cap to raise and carries higher confidence.
 - 🧭 **Scores the account** with a single 0–100 **health** number and a **per-channel breakdown** for the exec view.
 - 🎛️ **What-if simulator** — tune the engine's thresholds live and watch the action feed re-rank.
 - 📤 **Exports** the ranked actions to CSV for ad-ops, and **persists** datasets (in-memory → Firestore).
@@ -64,7 +65,7 @@ Lever is the **decision brain** that sits on top of your spend:
 | Black-box "AI suggestions" | **Deterministic + explainable** — every move shows its formula |
 
 The core is an **explainable, profit-objective recommendation engine**: pure, deterministic,
-81 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
+89 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
 
 ## Quickstart
 
@@ -87,7 +88,7 @@ curl -X POST http://localhost:3000/api/analyze \
 ## 🔬 Verify it yourself
 
 ```bash
-npm test             # 81 passing — engine rules, metrics, confidence, storage, CSV, export, API route
+npm test             # 89 passing — engine rules, metrics, confidence, storage, CSV, export, API route
 npm run build        # production build + full TypeScript check
 ```
 

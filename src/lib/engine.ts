@@ -29,6 +29,7 @@ export const DEFAULT_CONFIG: EngineConfig = {
   refreshCap: 0.5,
   minSpend: 250,
   minConversions: 5,
+  pacingThreshold: 0.9,
 };
 
 /**
@@ -111,6 +112,22 @@ export function analyze(
       const incRevenue = round(incSpend * m.roas * cfg.marginalEfficiency);
       const incProfit = round(incRevenue - incSpend);
       if (incProfit > 0) {
+        // Budget-capped winner: spend sits at/near its configured cap, so proven
+        // demand is being throttled. The incremental budget converts at the
+        // established rate rather than speculatively, so we lift confidence (as the
+        // sustained-fatigue rule does for stronger evidence) and call out the cap.
+        const budget = row.budget;
+        const capped =
+          budget != null && budget > 0 && row.spend >= budget * cfg.pacingThreshold;
+        const scaleConfidence = capped
+          ? round(Math.min(1, confidence + 0.1), 2)
+          : confidence;
+        const capNote =
+          capped && budget != null
+            ? ` Budget-capped: spent $${round(row.spend)} of a $${round(budget)} cap ` +
+              `(${Math.round((row.spend / budget) * 100)}% pacing) — demand is throttled, ` +
+              `so raise the cap to capture it.`
+            : "";
         recommendations.push({
           entityId: row.id,
           entityName: row.name,
@@ -121,8 +138,9 @@ export function analyze(
           rationale:
             `Strong performer: ROAS ${m.roas} (≥ ${round(cfg.targetRoas * cfg.scaleTrigger, 2)}). ` +
             `Scaling budget +${cfg.scaleStep * 100}% ($${incSpend}) at ${cfg.marginalEfficiency * 100}% ` +
-            `marginal efficiency projects ~$${incProfit} extra profit.`,
-          confidence,
+            `marginal efficiency projects ~$${incProfit} extra profit.` +
+            capNote,
+          confidence: scaleConfidence,
           metrics: m,
         });
         continue;

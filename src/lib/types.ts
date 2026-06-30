@@ -28,6 +28,12 @@ export interface AdRow {
    * immediately-attributed `revenue`, so profit decisions reflect downstream value.
    */
   ltvPerConversion?: number;
+  /**
+   * The entity's configured spend cap for this reporting period (optional). When
+   * spend sits at/near this cap, a winning entity's delivery is throttled — proven
+   * demand the engine can flag for a budget increase rather than a speculative bid.
+   */
+  budget?: number;
   /** ISO date of the reporting period (optional). */
   date?: string;
 }
@@ -127,4 +133,10 @@ export interface EngineConfig {
    * Per-row `ltvPerConversion` always wins over this channel default.
    */
   channelLtv?: Partial<Record<Channel, number>>;
+  /**
+   * Pacing fraction at/above which a winner counts as budget-capped: when
+   * `spend >= budget × pacingThreshold`, its delivery is throttled by the cap, so
+   * the SCALE recommendation gains confidence and calls out raising the cap.
+   */
+  pacingThreshold: number;
 }

@@ -8,7 +8,8 @@ import type { AdRow } from "./types";
  * Fully synthetic — no real account data.
  */
 export const SAMPLE_DATA: AdRow[] = [
-  // SCALE: strong ROAS, plenty of signal.
+  // SCALE (budget-capped): strong ROAS with spend pinned near its $4,500 cap —
+  // proven demand the engine flags for a budget increase, not just a bid bump.
   {
     id: "g-1",
     name: "Google · Solar Leads — Exact",
@@ -18,6 +19,7 @@ export const SAMPLE_DATA: AdRow[] = [
     conversions: 168,
     clicks: 5200,
     impressions: 142000,
+    budget: 4500,
     date: "2026-06-01",
   },
   // PAUSE: deep in the red despite real volume.
@@ -164,7 +166,7 @@ export const SAMPLE_DATA: AdRow[] = [
 /** CSV string of the sample dataset, used to demo the upload path. */
 export function sampleCsv(): string {
   const header =
-    "id,name,channel,spend,revenue,conversions,clicks,impressions,date,prior_ctr,ltv_per_conversion,ctr_history";
+    "id,name,channel,spend,revenue,conversions,clicks,impressions,date,prior_ctr,ltv_per_conversion,budget,ctr_history";
   const lines = SAMPLE_DATA.map((r) =>
     [
       r.id,
@@ -178,6 +180,7 @@ export function sampleCsv(): string {
       r.date ?? "",
       r.priorCtr ?? "",
       r.ltvPerConversion ?? "",
+      r.budget ?? "",
       // Pipe-delimited so the series rides inside one un-quoted CSV cell.
       r.ctrHistory?.join("|") ?? "",
     ].join(","),

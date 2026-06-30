@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { analyze, accountHealth } from "./engine";
-import { computeMetrics, safeDiv, median, signalConfidence, spendConfidence, summarizeByChannel, effectiveRevenue, channelMedianCtr, sustainedFatigue } from "./metrics";
+import { computeMetrics, safeDiv, median, round, signalConfidence, spendConfidence, summarizeByChannel, effectiveRevenue, channelMedianCtr, sustainedFatigue } from "./metrics";
 import { parseCsv, sanitizeAdRows } from "./csv";
 import type { AdRow } from "./types";
 
@@ -44,7 +44,7 @@ describe("metrics", () => {
 });
 
 describe("accountHealth", () => {
-  const cfg = { targetRoas: 1, scaleTrigger: 1.25, scaleStep: 0.3, marginalEfficiency: 0.8, fatigueRatio: 0.6, fatigueDeclineRatio: 0.25, refreshCap: 0.5, minSpend: 250, minConversions: 5 };
+  const cfg = { targetRoas: 1, scaleTrigger: 1.25, scaleStep: 0.3, marginalEfficiency: 0.8, fatigueRatio: 0.6, fatigueDeclineRatio: 0.25, refreshCap: 0.5, minSpend: 250, minConversions: 5, pacingThreshold: 0.9 };
 
   it("is 0 for an empty / zero-spend portfolio", () => {
     expect(accountHealth([], [], cfg)).toBe(0);
@@ -610,5 +610,65 @@ describe("reallocation respects diminishing returns", () => {
     expect(reallocation!.amountUsd).toBe(300);
     expect(reallocation!.projectedImpactUsd).toBe(180); // 300 × (2×0.8 − 1)
     expect(reallocation!.rationale).toMatch(/spread/i); // $1700 remainder flagged
+  });
+});
+
+describe("budget-pacing (budget-capped winners)", () => {
+  // conversions 10 keeps base confidence below 1.0 so the capped lift is visible.
+  const winner = (over: Partial<AdRow>) =>
+    row({ id: "s", spend: 1000, revenue: 2000, conversions: 10, clicks: 1000, impressions: 30000, ...over });
+
+  it("flags a winner pinned near its budget cap and lifts SCALE confidence", () => {
+    const base = analyze([winner({})]).recommendations[0];
+    const capped = analyze([winner({ budget: 1050 })]).recommendations[0]; // 1000/1050 = 95% ≥ 90%
+    expect(capped.action).toBe("SCALE");
+    expect(capped.rationale).toMatch(/budget-capped/i);
+    expect(capped.rationale).toContain("95% pacing");
+    // same disciplined dollar projection — the cap doesn't inflate impact
+    expect(capped.projectedImpactUsd).toBe(base.projectedImpactUsd);
+    // but confidence is lifted +0.1 (capped at 1.0) vs the uncapped baseline
+    expect(capped.confidence).toBe(round(Math.min(1, base.confidence + 0.1), 2));
+    expect(capped.confidence).toBeGreaterThan(base.confidence);
+  });
+
+  it("does NOT flag a winner spending well under its budget (no throttle)", () => {
+    const rec = analyze([winner({ budget: 5000 })]).recommendations[0]; // 1000/5000 = 20%
+    expect(rec.action).toBe("SCALE");
+    expect(rec.rationale).not.toMatch(/budget-capped/i);
+  });
+
+  it("is backward compatible: no budget field means no capped flag and no confidence change", () => {
+    const noBudget = analyze([winner({})]).recommendations[0];
+    expect(noBudget.rationale).not.toMatch(/budget-capped/i);
+    expect(noBudget.confidence).toBe(
+      signalConfidence(1000, 10, 250, 5),
+    );
+  });
+
+  it("honors a custom pacingThreshold so an earlier pacing point trips the flag", () => {
+    const data = [winner({ budget: 2000 })]; // 1000/2000 = 50%
+    expect(analyze(data).recommendations[0].rationale).not.toMatch(/budget-capped/i);
+    expect(
+      analyze(data, { pacingThreshold: 0.5 }).recommendations[0].rationale,
+    ).toMatch(/budget-capped/i);
+  });
+});
+
+describe("csv budget ingest", () => {
+  it("ingests a budget column as a positive dollar amount, stripping currency", () => {
+    const csv = "campaign,platform,cost,conversion_value,conv,budget\nSolar,Google,4200,9450,168,\"$4,500\"";
+    const [r] = parseCsv(csv);
+    expect(r.budget).toBe(4500);
+  });
+
+  it("leaves budget undefined when the column is absent or non-positive", () => {
+    expect(parseCsv("campaign,platform,cost\nX,Google,500")[0].budget).toBeUndefined();
+    expect(parseCsv("campaign,platform,cost,budget\nY,Google,500,0")[0].budget).toBeUndefined();
+  });
+
+  it("sanitizeAdRows coerces an untrusted budget and drops non-positive values", () => {
+    expect(sanitizeAdRows([{ spend: 1000, budget: "4500" }])[0].budget).toBe(4500);
+    expect(sanitizeAdRows([{ spend: 1000, budget: -5 }])[0].budget).toBeUndefined();
+    expect(sanitizeAdRows([{ spend: 1000 }])[0].budget).toBeUndefined();
   });
 });
