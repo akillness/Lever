@@ -17,3 +17,4 @@ Each entry = one full jeo cycle (change → build → test → real-operation ve
 | 11 | Input hardening | clamp negatives in CSV + `sanitizeAdRows` untrusted-payload guard in API + 4 tests | build ✓ · 34 tests ✓ |
 | 12 | SEO/marketing meta | OpenGraph + Twitter card + keywords + metadataBase in layout | build ✓ |
 | 13 | Empty/clear states + a11y | "no data" + "all clear" panels, aria-label on upload, disabled export when empty | build ✓ |
+| 14 | Deploy readiness | `.env.example` (Firebase trio), `.nvmrc`, `engines.node>=20` | build ✓ |
