@@ -48,3 +48,5 @@ next-env.d.ts
 # Lever encrypted credential vault + local file DB (never commit secrets/data)
 .lever/
 *.enc.json
+# god-tibo-imagen debug request/response dumps (local only, not product)
+.debug-codex-imagegen/

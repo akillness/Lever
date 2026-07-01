@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
+
 import { analyze, DEFAULT_CONFIG } from "@/lib/engine";
 import { parseCsv } from "@/lib/csv";
 import { recommendationsToCsv } from "@/lib/export";
@@ -32,6 +34,68 @@ const ACTION_LABEL: Record<RecommendationAction, string> = {
   REVIEW: "Review",
   KEEP: "Keep",
 };
+/**
+ * A tiny per-action glyph so the action badges carry a symbol, not just a
+ * color + word — a second, always-visible identity cue for colorblind users
+ * and for the "scan the list fast" workflow a media buyer actually uses.
+ * `currentColor` strokes/fills so each icon inherits its badge's text tone
+ * (see ACTION_STYLES); purely decorative, so it's aria-hidden — the adjacent
+ * ACTION_LABEL text is the accessible name.
+ */
+function ActionIcon({
+  action,
+  className,
+}: {
+  action: RecommendationAction;
+  className?: string;
+}) {
+  const shared = {
+    viewBox: "0 0 16 16",
+    className,
+    "aria-hidden": true,
+    focusable: false,
+  } as const;
+  switch (action) {
+    case "PAUSE":
+      return (
+        <svg {...shared} fill="currentColor">
+          <rect x="4" y="3" width="2.6" height="10" rx="0.6" />
+          <rect x="9.4" y="3" width="2.6" height="10" rx="0.6" />
+        </svg>
+      );
+    case "SCALE":
+      return (
+        <svg {...shared} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 12 L8 6.5 L11 9 L13.5 4" />
+          <path d="M10.2 4 L13.5 4 L13.5 7.3" />
+        </svg>
+      );
+    case "REFRESH_CREATIVE":
+      return (
+        <svg {...shared} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3.2 8 A4.8 4.8 0 0 1 12.6 5.6" />
+          <path d="M12.8 3 L12.8 6 L9.8 6" />
+          <path d="M12.8 8 A4.8 4.8 0 0 1 3.4 10.4" />
+          <path d="M3.2 13 L3.2 10 L6.2 10" />
+        </svg>
+      );
+    case "REVIEW":
+      return (
+        <svg {...shared} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="6.8" cy="6.8" r="4" />
+          <path d="M9.8 9.8 L13.2 13.2" />
+        </svg>
+      );
+    case "KEEP":
+      return (
+        <svg {...shared} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+
+          <path d="M3.2 8.4 L6.4 11.6 L12.8 4.4" />
+        </svg>
+      );
+  }
+}
+
 
 export default function Home() {
   const [rows, setRows] = useState<AdRow[]>(SAMPLE_DATA);
@@ -281,11 +345,20 @@ export default function Home() {
         </h2>
         {recommendations.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
+            <Image
+              src="/empty-state.png"
+              alt=""
+              width={96}
+              height={96}
+              className="mx-auto mb-3 opacity-90"
+            />
+
             <p className="text-sm font-semibold text-slate-700">No data yet</p>
             <p className="mt-1 text-sm text-slate-500">
               Upload a CSV export from any ad platform, or reset to the sample dataset.
             </p>
           </div>
+
         ) : actionable.length === 0 ? (
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center">
             <p className="text-sm font-semibold text-emerald-800">
@@ -350,10 +423,12 @@ function RecommendationCard({ r, rank }: { r: Recommendation; rank?: number }) {
           </span>
         )}
         <span
-          className={`rounded-md px-2 py-0.5 text-xs font-bold uppercase ring-1 ring-inset ${ACTION_STYLES[r.action]}`}
+          className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-bold uppercase ring-1 ring-inset ${ACTION_STYLES[r.action]}`}
         >
+          <ActionIcon action={r.action} className="h-3 w-3" />
           {ACTION_LABEL[r.action]}
         </span>
+
         <span className="font-semibold text-slate-900">{r.entityName}</span>
         <span className="text-xs uppercase text-slate-500">{r.channel}</span>
         <span

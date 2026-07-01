@@ -22,3 +22,25 @@ card via `build-og.sh`. Those normalized files (in this dir) are the canonical s
 copied into `src/app/{icon,apple-icon,opengraph-image,twitter-image}.png` + `favicon.ico`.
 The inline header `LeverMark` SVG in `page.tsx` is the precise vector twin (same
 geometry/tokens) and remains the accessible, theme-aware header logomark.
+## Cycle 69 — empty-state illustration
+`cy69/empty-state-raw.png` is a new `god-tibo-imagen` generation: the same
+slate-ink (#0f172a) lever-on-fulcrum line art with a single emerald (#047857)
+dot at the lifted tip, plus a light-gray dashed horizontal line beneath it
+standing in for an empty data axis — "waiting for data," not just a blank
+mark. Trimmed, padded to a square, flattened on white, and downsized to
+`empty-state-480.png`, which is copied to `public/empty-state.png` and
+rendered via `next/image` in the "No data yet" empty state (`page.tsx`),
+replacing what was a plain text-only placeholder. A pixel sample confirmed
+ink, emerald, and gray pixel clusters are all present against the white
+ground before normalization.
+
+Reproduce the normalization:
+```bash
+cd cy69
+magick empty-state-raw.png -trim +repage -bordercolor white -border 60 \
+  -gravity center -background white \
+  -extent "$(magick empty-state-raw.png -trim +repage -format '%[fx:max(w,h)+120]x%[fx:max(w,h)+120]' info:)" \
+  empty-state-trimmed.png
+magick empty-state-trimmed.png -background white -alpha remove -alpha off \
+  -resize 480x480 empty-state-480.png
+```

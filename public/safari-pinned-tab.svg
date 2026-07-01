@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!--
+    Safari pinned-tab / mask-icon silhouette. Must be a single-color vector
+    (fill is ignored by Safari, which recolors it with the `color` attribute
+    set on <link rel="mask-icon">) — same lever-on-fulcrum geometry as the
+    inline LeverMark in page.tsx and the registered god-tibo-imagen app icon,
+    so the pinned tab still reads as the same mark. See docs/BRAND.md.
+  -->
+  <path d="M12.6 21 L17.4 28.5 L7.8 28.5 Z" />
+  <path d="M5 24 L28 9.8" stroke="black" stroke-width="3.2" stroke-linecap="round" fill="none" />
+  <circle cx="28" cy="9.8" r="2.8" />
+</svg>

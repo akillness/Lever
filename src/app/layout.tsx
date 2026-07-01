@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { resolveSiteUrl } from "@/lib/siteUrl";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -11,26 +12,6 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
-
-/**
- * Resolve the canonical site origin for absolute OG / Twitter / canonical URLs.
- * On Vercel this is derived from system env vars, so production and preview
- * deployments always emit correct absolute URLs without hardcoding a domain:
- *  - NEXT_PUBLIC_SITE_URL        explicit override (custom domain / self-host)
- *  - VERCEL_PROJECT_PRODUCTION_URL  stable production domain, present on every
- *                                deployment (custom domain or <project>.vercel.app)
- *  - VERCEL_URL                  unique per-deployment URL (preview deploys)
- * Falls back to localhost for `next dev` / `next start` outside Vercel.
- */
-function resolveSiteUrl(): URL {
-  const explicit = process.env.NEXT_PUBLIC_SITE_URL;
-  if (explicit) return new URL(explicit);
-  const production = process.env.VERCEL_PROJECT_PRODUCTION_URL;
-  if (production) return new URL(`https://${production}`);
-  const deployment = process.env.VERCEL_URL;
-  if (deployment) return new URL(`https://${deployment}`);
-  return new URL("http://localhost:3000");
-}
 
 export const metadata: Metadata = {
   metadataBase: resolveSiteUrl(),
@@ -61,6 +42,36 @@ export const metadata: Metadata = {
     description:
       "Pause leaks, scale winners, refresh fatigued creative — each move shown with the math.",
   },
+  // Safari's legacy pinned-tab icon: a single-color SVG silhouette, recolored
+  // via `color` (Safari ignores the SVG's own fill). Same lever-on-fulcrum
+  // geometry as the header LeverMark and the registered app icon, so the
+  // pinned tab still reads as the Lever mark. See docs/BRAND.md.
+  icons: {
+    other: [
+      {
+        rel: "mask-icon",
+        url: "/safari-pinned-tab.svg",
+        color: "#0f172a",
+      },
+    ],
+  },
+};
+
+/**
+ * JSON-LD (schema.org SoftwareApplication) so search engines and AI
+ * crawlers can resolve what Lever *is* without scraping the UI — real-service
+ * SEO hygiene, not just an OG image. Deliberately omits fields we can't
+ * truthfully claim yet (price, aggregateRating, review count).
+ */
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Lever",
+  description:
+    "Turn fragmented cross-platform ad performance into one ranked, dollar-backed action list. Pause leaks, scale winners, refresh fatigued creative — each move shown with the math.",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  url: resolveSiteUrl().toString(),
 };
 
 // Tint mobile browser chrome with brand ink so the app reads as a product, not a
@@ -83,7 +94,15 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
+
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
+
     </html>
   );
 }
