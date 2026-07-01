@@ -50,3 +50,5 @@ next-env.d.ts
 *.enc.json
 # god-tibo-imagen debug request/response dumps (local only, not product)
 .debug-codex-imagegen/
+# jeo runtime agent scratch space (never commit; local session state only)
+.pi/
