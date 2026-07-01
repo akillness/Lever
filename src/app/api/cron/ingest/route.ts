@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { runPipeline } from "@/lib/pipeline";
 import { isCronAuthorized } from "@/lib/cronAuth";
+import { isValidAccountId } from "@/lib/secrets";
 import type { DateRange } from "@/lib/channels/types";
 
 const DEFAULT_WINDOW_DAYS = 2;
@@ -30,6 +31,9 @@ function parseDays(raw: string | null): number {
  * `Authorization: Bearer` header Vercel Cron sends; see {@link isCronAuthorized}.
  *
  * `?days=N` overrides the window (capped) for a manual backfill trigger.
+ * `?accountId=...` selects a tenant's vault-scoped credentials (default: the
+ * single-tenant unnamespaced account); register one Vercel Cron entry per
+ * `path` query string to schedule several tenants independently.
  */
 export async function GET(request: Request) {
   if (!isCronAuthorized(request)) {
@@ -37,11 +41,20 @@ export async function GET(request: Request) {
   }
   const url = new URL(request.url);
   const range = windowRange(parseDays(url.searchParams.get("days")));
+  const accountIdParam = url.searchParams.get("accountId");
+  if (accountIdParam != null && !isValidAccountId(accountIdParam)) {
+    return NextResponse.json({ error: "invalid accountId" }, { status: 400 });
+  }
 
   try {
-    const out = await runPipeline({ range, persist: true });
+    const out = await runPipeline({
+      range,
+      accountId: accountIdParam ?? undefined,
+      persist: true,
+    });
     return NextResponse.json({
       range,
+      accountId: accountIdParam ?? undefined,
       ingest: { sources: out.ingest.sources, rows: out.ingest.rows.length },
       datasetId: out.dataset?.id ?? null,
       sync: out.sync,

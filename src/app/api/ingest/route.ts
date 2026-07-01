@@ -3,6 +3,7 @@ import { runPipeline } from "@/lib/pipeline";
 import { parseCsv, sanitizeAdRows } from "@/lib/csv";
 import { parseRange, sanitizeConfig } from "@/lib/configInput";
 import { isAdminAuthorized } from "@/lib/adminAuth";
+import { isValidAccountId } from "@/lib/secrets";
 import type { AdRow } from "@/lib/types";
 import type { DateRange } from "@/lib/channels/types";
 
@@ -22,7 +23,10 @@ function defaultRange(): DateRange {
  * rows/csv), persist the dataset, and push results to the Google Sheet.
  *
  * Body: { range?: {start,end}, rows?: AdRow[], csv?: string, name?: string,
- *         config?: Partial<EngineConfig>, persist?: boolean, sync?: boolean }.
+ *         config?: Partial<EngineConfig>, accountId?: string, persist?: boolean,
+ *         sync?: boolean }. `accountId` selects which tenant's vault-scoped
+ *         channel credentials to ingest with (default: the single-tenant
+ *         unnamespaced account — see `DEFAULT_ACCOUNT_ID`).
  *
  * The response carries the AnalysisResult, per-channel ingest status, the saved
  * dataset id, and the sync outcome — but never any credential values.
@@ -37,9 +41,17 @@ export async function POST(request: Request) {
     csv?: string;
     name?: string;
     config?: unknown;
+    accountId?: unknown;
     persist?: boolean;
     sync?: boolean;
   };
+
+  if (
+    body.accountId != null &&
+    (typeof body.accountId !== "string" || !isValidAccountId(body.accountId))
+  ) {
+    return NextResponse.json({ error: "invalid accountId" }, { status: 400 });
+  }
 
   const range = parseRange(body.range) ?? defaultRange();
   const config = sanitizeConfig(body.config);
@@ -57,6 +69,7 @@ export async function POST(request: Request) {
       rows,
       name: body.name?.trim() || undefined,
       config,
+      accountId: body.accountId as string | undefined,
       persist: body.persist !== false,
       sync: body.sync,
     });

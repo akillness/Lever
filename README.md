@@ -7,7 +7,7 @@
 **Turn four fragmented ad dashboards into one ranked "do this next" list — every move shown with the math and a projected dollar impact.**
 
 [![Build](https://img.shields.io/badge/build-passing-brightgreen)](#-verify-it-yourself)
-[![Tests](https://img.shields.io/badge/tests-176%20passing-brightgreen)](src/lib/engine.test.ts)
+[![Tests](https://img.shields.io/badge/tests-181%20passing-brightgreen)](src/lib/engine.test.ts)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Deploy](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://lever-sepia.vercel.app)
@@ -67,7 +67,7 @@ Lever is the **decision brain** that sits on top of your spend:
 | Black-box "AI suggestions" | **Deterministic + explainable** — every move shows its formula |
 
 The core is an **explainable, profit-objective recommendation engine**: pure, deterministic,
-176 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
+181 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
 
 ## Quickstart
 
@@ -90,7 +90,7 @@ curl -X POST http://localhost:3000/api/analyze \
 ## 🔬 Verify it yourself
 
 ```bash
-npm test             # 176 passing — engine, metrics, confidence, storage, CSV, export, secrets vault, channel connectors, Sheets sync, ingest pipeline, API routes
+npm test             # 181 passing — engine, metrics, confidence, storage, CSV, export, secrets vault, channel connectors, Sheets sync, ingest pipeline, API routes
 npm run build        # production build + full TypeScript check
 ```
 

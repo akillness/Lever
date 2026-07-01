@@ -57,6 +57,17 @@ vault at runtime via `POST /api/credentials`.
 `GET /api/credentials` returns this catalog plus a per-channel `configured` flag —
 **without** echoing any secret value.
 
+**Multi-tenant (cycle 68):** every credential write, read, and delete accepts
+an optional `accountId` (1–64 `[A-Za-z0-9_-]` chars). Two accounts' credentials
+for the same channel are stored under independent, non-colliding vault keys
+(`vaultKey(channel, accountId)` → `${accountId}::${channel}`) and a GET scoped
+to one `accountId` never reveals whether another tenant is configured. Omit it
+and every route falls back to the original unnamespaced single-tenant account
+— existing zero-config deployments, stored vault files, and integrations are
+unaffected. `/api/ingest` and `/api/cron/ingest` accept the same `accountId` to
+select which tenant's connectors to pull.
+
+
 ## 5. Success metrics
 
 - **Activation:** % of accounts with ≥1 connector configured and a successful ingest.
@@ -70,9 +81,11 @@ vault at runtime via `POST /api/credentials`.
 | Item | Impact | Effort | Notes |
 |---|---|---|---|
 | OAuth refresh-token flow (auto-mint access tokens) | High | M | Connectors accept a token today; add refresh to remove manual rotation. |
-| Per-account multi-tenant vault namespacing | High | M | Today one vault per deployment; namespace by account id. |
+| ~~Per-account multi-tenant vault namespacing~~ | High | M | **Shipped (cycle 68):** `vaultKey(channel, accountId)` namespaces credentials (`${accountId}::${channel}`); `/api/credentials`, `/api/ingest`, `/api/cron/ingest` all accept `accountId` (default: unnamespaced single-tenant account — zero-config demo unaffected). |
 | ~~Scheduled server-side ingest (cron)~~ | Med | S | **Shipped (cycle 67):** `GET /api/cron/ingest` + `vercel.json` cron (daily, 2-day trailing window), `LEVER_CRON_SECRET` bearer-token gated. |
 | ~~Connector pagination + rate-limit backoff~~ | Med | M | **Shipped (cycle 66):** google/meta/tiktok walk every page (`MAX_FETCH_PAGES`-capped); backoff shipped cycles 58–61. |
+| Sheet → engine config write-back | Low | S | Let buyers tune thresholds from the sheet. |
+
 | Sheet → engine config write-back | Low | S | Let buyers tune thresholds from the sheet. |
 
 

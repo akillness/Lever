@@ -10,7 +10,7 @@
 import { analyze } from "./engine";
 import { allConnectors } from "./channels";
 import type { ChannelConnector, DateRange, Fetcher, RetryOptions } from "./channels/types";
-import { getVault, type CredentialVault } from "./secrets";
+import { DEFAULT_ACCOUNT_ID, getVault, vaultKey, type CredentialVault } from "./secrets";
 import { createStorage, type StorageAdapter, type StoredDataset } from "./storage";
 import { buildSyncPayload, pushToSheet } from "./sheets";
 import type { AdRow, AnalysisResult, Channel, EngineConfig } from "./types";
@@ -32,6 +32,8 @@ export interface IngestOptions {
   vault?: CredentialVault;
   fetcher?: Fetcher;
   connectors?: ChannelConnector[];
+  /** Which tenant's credentials to read (see {@link DEFAULT_ACCOUNT_ID}). */
+  accountId?: string;
 }
 
 /**
@@ -45,11 +47,12 @@ export async function ingestFromConnectors(
 ): Promise<IngestResult> {
   const vault = options.vault ?? getVault();
   const connectors = options.connectors ?? allConnectors();
+  const accountId = options.accountId ?? DEFAULT_ACCOUNT_ID;
   const rows: AdRow[] = [];
   const sources: ChannelIngestStatus[] = [];
 
   for (const connector of connectors) {
-    const creds = await vault.get(connector.channel);
+    const creds = await vault.get(vaultKey(connector.channel, accountId));
     if (!connector.isConfigured(creds)) {
       sources.push({ channel: connector.channel, configured: false, fetched: 0 });
       continue;
@@ -92,6 +95,8 @@ export interface PipelineOptions {
   storage?: StorageAdapter;
   fetcher?: Fetcher;
   connectors?: ChannelConnector[];
+  /** Which tenant's vault-scoped credentials to ingest with (see {@link DEFAULT_ACCOUNT_ID}). */
+  accountId?: string;
   /** Defaults to LEVER_SHEETS_WEBHOOK_URL. */
   sheetsWebhookUrl?: string;
   /** Defaults to LEVER_SHEETS_TOKEN. */
@@ -122,17 +127,22 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRes
     storage,
     fetcher,
     connectors,
+    accountId = DEFAULT_ACCOUNT_ID,
     persist = true,
   } = options;
 
   const ingest: IngestResult = provided
     ? { rows: provided, sources: [] }
-    : await ingestFromConnectors(range, { vault, fetcher, connectors });
+    : await ingestFromConnectors(range, { vault, fetcher, connectors, accountId });
 
   const result = analyze(ingest.rows, config);
 
   const store = storage ?? createStorage();
-  const datasetName = name || `ingest ${range.start}..${range.end}`;
+  const datasetName =
+    name ||
+    (accountId === DEFAULT_ACCOUNT_ID
+      ? `ingest ${range.start}..${range.end}`
+      : `ingest ${accountId} ${range.start}..${range.end}`);
   const dataset =
     persist && ingest.rows.length > 0
       ? await store.saveDataset(datasetName, ingest.rows)

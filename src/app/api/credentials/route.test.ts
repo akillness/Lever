@@ -28,9 +28,12 @@ const post = (body: unknown, headers: Record<string, string> = {}) =>
     }),
   );
 
+const get = (query = "") => GET(new Request(`http://localhost/api/credentials${query}`));
+
+
 describe("GET /api/credentials", () => {
   it("returns the onboarding catalog with no channel configured initially", async () => {
-    const res = await (await GET()).json();
+    const res = await (await get()).json();
     expect(res.channels).toHaveLength(4);
     expect(res.channels.every((c: { configured: boolean }) => c.configured === false)).toBe(true);
     const google = res.channels.find((c: { channel: string }) => c.channel === "google");
@@ -40,7 +43,7 @@ describe("GET /api/credentials", () => {
 
   it("never returns secret values, only configured flags", async () => {
     await post({ channel: "meta", credentials: { accountId: "act_1", accessToken: "SECRET" } });
-    const text = JSON.stringify(await (await GET()).json());
+    const text = JSON.stringify(await (await get()).json());
     expect(text).not.toContain("SECRET");
   });
 });
@@ -51,7 +54,7 @@ describe("POST /api/credentials", () => {
       await post({ channel: "google", credentials: { customerId: "1", developerToken: "d", accessToken: "a" } })
     ).json();
     expect(res).toMatchObject({ ok: true, channel: "google", configured: true });
-    const got = await (await GET()).json();
+    const got = await (await get()).json();
     expect(got.channels.find((c: { channel: string }) => c.channel === "google").configured).toBe(true);
   });
 
@@ -92,6 +95,61 @@ describe("POST /api/credentials", () => {
   });
 });
 
+describe("multi-tenant accountId", () => {
+  it("keeps two accounts' credentials for the same channel independent", async () => {
+    await post({
+      channel: "meta",
+      accountId: "tenant-a",
+      credentials: { accountId: "act_1", accessToken: "tok-a" },
+    });
+    const tenantA = await (await get("?accountId=tenant-a")).json();
+    const tenantB = await (await get("?accountId=tenant-b")).json();
+    const defaultAcct = await (await get()).json();
+    expect(tenantA.channels.find((c: { channel: string }) => c.channel === "meta").configured).toBe(true);
+    expect(tenantB.channels.find((c: { channel: string }) => c.channel === "meta").configured).toBe(false);
+    expect(defaultAcct.channels.find((c: { channel: string }) => c.channel === "meta").configured).toBe(false);
+  });
+
+  it("DELETE only removes the named account's credentials, not another tenant's", async () => {
+    await post({
+      channel: "meta",
+      accountId: "tenant-a",
+      credentials: { accountId: "act_1", accessToken: "tok-a" },
+    });
+    await post({
+      channel: "meta",
+      accountId: "tenant-b",
+      credentials: { accountId: "act_2", accessToken: "tok-b" },
+    });
+    await DELETE(
+      new Request("http://localhost/api/credentials?channel=meta&accountId=tenant-a", {
+        method: "DELETE",
+      }),
+    );
+    const tenantA = await (await get("?accountId=tenant-a")).json();
+    const tenantB = await (await get("?accountId=tenant-b")).json();
+    expect(tenantA.channels.find((c: { channel: string }) => c.channel === "meta").configured).toBe(false);
+    expect(tenantB.channels.find((c: { channel: string }) => c.channel === "meta").configured).toBe(true);
+  });
+
+  it("rejects an invalid accountId on GET, POST, and DELETE", async () => {
+    expect((await get("?accountId=has:colon")).status).toBe(400);
+    expect(
+      (await post({ channel: "meta", accountId: "has:colon", credentials: { a: 1 } })).status,
+    ).toBe(400);
+    expect(
+      (
+        await DELETE(
+          new Request("http://localhost/api/credentials?channel=meta&accountId=has:colon", {
+            method: "DELETE",
+          }),
+        )
+      ).status,
+    ).toBe(400);
+  });
+});
+
+
 describe("DELETE /api/credentials", () => {
   it("removes stored credentials for a channel", async () => {
     await post({ channel: "meta", credentials: { accountId: "a", accessToken: "b" } });
@@ -99,7 +157,7 @@ describe("DELETE /api/credentials", () => {
       await DELETE(new Request("http://localhost/api/credentials?channel=meta", { method: "DELETE" }))
     ).json();
     expect(res).toMatchObject({ ok: true, channel: "meta", removed: true });
-    const got = await (await GET()).json();
+    const got = await (await get()).json();
     expect(got.channels.find((c: { channel: string }) => c.channel === "meta").configured).toBe(false);
   });
 });

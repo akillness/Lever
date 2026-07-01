@@ -68,6 +68,19 @@ describe("ingestFromConnectors", () => {
       error: "google boom",
     });
   });
+
+  it("scopes vault reads to accountId — the default account never sees a tenant's creds", async () => {
+    const vault = new InMemoryCredentialVault(KEY);
+    await vault.set("acct-x::google", { token: "g" }); // tenant-scoped
+    const connectors = [fakeConnector("google", gRows)];
+    const asDefault = await ingestFromConnectors(RANGE, { vault, connectors });
+    expect(asDefault.rows).toEqual([]);
+    expect(asDefault.sources).toEqual([{ channel: "google", configured: false, fetched: 0 }]);
+    const asTenant = await ingestFromConnectors(RANGE, { vault, connectors, accountId: "acct-x" });
+    expect(asTenant.rows).toEqual(gRows);
+    expect(asTenant.sources).toEqual([{ channel: "google", configured: true, fetched: 1 }]);
+  });
+
 });
 
 describe("runPipeline", () => {
@@ -85,6 +98,18 @@ describe("runPipeline", () => {
     expect((await storage.listDatasets())[0].id).toBe(out.dataset?.id);
     expect(out.sync).toEqual({ attempted: false, ok: false });
   });
+
+  it("folds a non-default accountId into the auto-generated dataset name", async () => {
+    const storage = new InMemoryStorage();
+    const out = await runPipeline({
+      range: RANGE,
+      rows: gRows,
+      accountId: "acct-x",
+      storage,
+    });
+    expect(out.dataset?.name).toBe(`ingest acct-x ${RANGE.start}..${RANGE.end}`);
+  });
+
 
   it("ingests from connectors then pushes to the sheet webhook", async () => {
     const vault = new InMemoryCredentialVault(KEY);

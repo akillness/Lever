@@ -184,6 +184,33 @@ export function hasVaultSecret(): boolean {
 }
 
 /**
+ * Multi-tenant support: one Lever deployment (one vault) can hold credentials
+ * for several ad accounts. `DEFAULT_ACCOUNT_ID` is the implicit, unprefixed
+ * account so the zero-config single-tenant path (existing deployments,
+ * stored vault files, and tests) is completely unaffected — only a caller
+ * that explicitly passes a different `accountId` gets namespaced.
+ */
+export const DEFAULT_ACCOUNT_ID = "default";
+
+/** 1-64 chars of letters/digits/`-`/`_` — no `:` so it can't collide with the namespace separator. */
+const ACCOUNT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** True when a caller-supplied account id is safe to use as a vault-key namespace. */
+export function isValidAccountId(id: string): boolean {
+  return id === DEFAULT_ACCOUNT_ID || ACCOUNT_ID_RE.test(id);
+}
+
+/**
+ * Vault key for a channel's credentials, namespaced by account. The default
+ * account uses the bare channel name (unprefixed); any other account id is
+ * namespaced as `${accountId}::${channel}` so two tenants' credentials for
+ * the same channel never collide in the same vault/file.
+ */
+export function vaultKey(channel: string, accountId: string = DEFAULT_ACCOUNT_ID): string {
+  return accountId === DEFAULT_ACCOUNT_ID ? channel : `${accountId}::${channel}`;
+}
+
+/**
  * Default vault path. Lives under `.lever/` (git-ignored) next to the project
  * unless `LEVER_VAULT_PATH` overrides it.
  */
