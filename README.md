@@ -158,7 +158,7 @@ src/app/api/cron/ingest ← Vercel Cron entry point: same pipeline, daily 2-day 
 - [`docs/01-brainstorm-decision.md`](docs/01-brainstorm-decision.md) — idea & brand decision
 - [`docs/02-spec.md`](docs/02-spec.md) — product spec
 - [`docs/05-pm-roadmap.md`](docs/05-pm-roadmap.md) — PM roadmap, real-data architecture & free-tier onboarding
-- [`docs/CYCLES.md`](docs/CYCLES.md) — full build-cycle log (73+ cycles)
+- [`docs/CYCLES.md`](docs/CYCLES.md) — full build-cycle log (75+ cycles, jeo-team reviewed)
 
 ---
 
