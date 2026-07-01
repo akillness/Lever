@@ -7,7 +7,7 @@
 **Turn four fragmented ad dashboards into one ranked "do this next" list — every move shown with the math and a projected dollar impact.**
 
 [![Build](https://img.shields.io/badge/build-passing-brightgreen)](#-verify-it-yourself)
-[![Tests](https://img.shields.io/badge/tests-171%20passing-brightgreen)](src/lib/engine.test.ts)
+[![Tests](https://img.shields.io/badge/tests-176%20passing-brightgreen)](src/lib/engine.test.ts)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Deploy](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://lever-sepia.vercel.app)
@@ -67,7 +67,7 @@ Lever is the **decision brain** that sits on top of your spend:
 | Black-box "AI suggestions" | **Deterministic + explainable** — every move shows its formula |
 
 The core is an **explainable, profit-objective recommendation engine**: pure, deterministic,
-171 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
+176 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
 
 ## Quickstart
 
@@ -90,7 +90,7 @@ curl -X POST http://localhost:3000/api/analyze \
 ## 🔬 Verify it yourself
 
 ```bash
-npm test             # 171 passing — engine, metrics, confidence, storage, CSV, export, secrets vault, channel connectors, Sheets sync, ingest pipeline, API routes
+npm test             # 176 passing — engine, metrics, confidence, storage, CSV, export, secrets vault, channel connectors, Sheets sync, ingest pipeline, API routes
 npm run build        # production build + full TypeScript check
 ```
 
@@ -118,6 +118,8 @@ src/lib/pipeline.ts     ← ingest (connectors) → analyze → persist → sync
 apps-script/Code.gs     ← Apps Script web app: upsert newest-first, daily trigger, retention trim
 src/app/api/credentials ← seal/list/remove channel API keys (never readable back; admin-gated)
 src/app/api/ingest      ← run the real-data pipeline for a reporting window (admin-gated)
+src/app/api/cron/ingest ← Vercel Cron entry point: same pipeline, daily 2-day trailing window (bearer-gated)
+
 ```
 
 ## Going to production
@@ -131,9 +133,14 @@ src/app/api/ingest      ← run the real-data pipeline for a reporting window (a
 - **Live data**: free-tier channel connectors are implemented (`src/lib/channels/*`) behind the
   same `AdRow[]` contract. Seal each platform's API keys via `POST /api/credentials` (sealed with
   AES-256-GCM under `LEVER_SECRET_KEY`, never returned over HTTP), then run `POST /api/ingest`
-  with a `{start,end}` window to pull → analyze → persist → sync. See
-  [`docs/05-pm-roadmap.md`](docs/05-pm-roadmap.md) for the per-channel free-tier onboarding table.
 - **Google Sheets**: deploy `apps-script/Code.gs` as a web app, set `LEVER_SHEETS_WEBHOOK_URL` +
+  `LEVER_SHEETS_TOKEN`, and every ingest upserts results into your sheet newest-first, with a
+  daily maintenance trigger.
+- **Hands-off scheduling**: `vercel.json` registers a daily Vercel Cron hitting
+  `GET /api/cron/ingest` — no manual trigger needed. Set `LEVER_CRON_SECRET`; Vercel Cron sends
+  it back as `Authorization: Bearer <secret>`, checked in constant time (fails closed in
+  production if unset). Override the trailing window with `?days=N` for a manual backfill.
+
   `LEVER_SHEETS_TOKEN`, and every ingest upserts results into your sheet newest-first, with a
   daily maintenance trigger.
 

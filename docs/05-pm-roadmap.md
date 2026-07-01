@@ -71,9 +71,10 @@ vault at runtime via `POST /api/credentials`.
 |---|---|---|---|
 | OAuth refresh-token flow (auto-mint access tokens) | High | M | Connectors accept a token today; add refresh to remove manual rotation. |
 | Per-account multi-tenant vault namespacing | High | M | Today one vault per deployment; namespace by account id. |
-| Scheduled server-side ingest (cron) | Med | S | Pair with Apps Script trigger for a fully hands-off loop. |
+| ~~Scheduled server-side ingest (cron)~~ | Med | S | **Shipped (cycle 67):** `GET /api/cron/ingest` + `vercel.json` cron (daily, 2-day trailing window), `LEVER_CRON_SECRET` bearer-token gated. |
 | ~~Connector pagination + rate-limit backoff~~ | Med | M | **Shipped (cycle 66):** google/meta/tiktok walk every page (`MAX_FETCH_PAGES`-capped); backoff shipped cycles 58–61. |
 | Sheet → engine config write-back | Low | S | Let buyers tune thresholds from the sheet. |
+
 
 
 ## 7. Guardrails (non-negotiable)
@@ -101,9 +102,10 @@ whole ingest run, and closed a timing-side-channel on the public Sheets endpoint
 - **Live-verified.** Admin-gated `POST /api/ingest` ranks real-shaped rows end to
   end; production fails closed (401) without `LEVER_ADMIN_TOKEN`; the credential
   catalog serves all four channels' free-tier onboarding.
-The prioritization item "Connector pagination + rate-limit backoff" is now
-**fully shipped** (cycle 66) — rate-limit backoff (cycles 58–61) plus
-multi-page pagination for google/meta/tiktok, capped by `MAX_FETCH_PAGES` so
-a runaway cursor can't loop forever.
 
-accounts remains the next connector task.
+The prioritization items "Connector pagination + rate-limit backoff" and
+"Scheduled server-side ingest (cron)" are now **fully shipped** (cycles
+66–67): rate-limit backoff (cycles 58–61) plus multi-page pagination for
+google/meta/tiktok capped by `MAX_FETCH_PAGES`, and a Vercel Cron-triggered
+`GET /api/cron/ingest` (bearer-token gated via `LEVER_CRON_SECRET`) that runs
+the same `runPipeline` orchestration on a daily 2-day trailing window.
