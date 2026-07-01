@@ -23,7 +23,6 @@ Sheet** the whole team already lives in.
 | Data/ops engineer | "Keep API keys encrypted, not pasted in a Slack." | Encrypted vault + admin-gated API |
 
 ## 3. Real-data architecture (spec stack)
-
 ```
  Channel APIs (free tier)        Encrypted vault            Engine            Sinks
  ────────────────────────        ───────────────            ──────            ─────
@@ -49,7 +48,7 @@ vault at runtime via `POST /api/credentials`.
 
 | Channel | Free API | What to get | Vault fields |
 |---|---|---|---|
-| Google | Google Ads API (Basic Access) | developer token + OAuth2 access token | `customerId`, `developerToken`, `accessToken` (`loginCustomerId` optional) |
+| Google | Google Ads API (Basic Access) | developer token + OAuth2 access token, or a refresh token (auto-minted, no rotation) | `customerId`, `developerToken`, + either `accessToken` **or** `refreshToken`+`clientId`+`clientSecret` (`loginCustomerId` optional) |
 | Meta | Marketing API (Insights) | app + `ads_read` access token | `accountId`, `accessToken` |
 | Taboola | Backstage API | client-credentials → bearer token | `accountId`, `accessToken` |
 | TikTok | Marketing API | developer app → access token | `advertiserId`, `accessToken` |
@@ -67,7 +66,6 @@ and every route falls back to the original unnamespaced single-tenant account
 unaffected. `/api/ingest` and `/api/cron/ingest` accept the same `accountId` to
 select which tenant's connectors to pull.
 
-
 ## 5. Success metrics
 
 - **Activation:** % of accounts with ≥1 connector configured and a successful ingest.
@@ -80,15 +78,11 @@ select which tenant's connectors to pull.
 
 | Item | Impact | Effort | Notes |
 |---|---|---|---|
-| OAuth refresh-token flow (auto-mint access tokens) | High | M | Connectors accept a token today; add refresh to remove manual rotation. |
+| ~~OAuth refresh-token flow (auto-mint access tokens)~~ | High | M | **Shipped (cycle 71, Google Ads):** supply `refreshToken`+`clientId`+`clientSecret` instead of a static `accessToken`; `fetchRows` mints a fresh token from Google's OAuth2 endpoint every call. Meta/Taboola/TikTok free-tier tokens are long-lived by design and still use a static `accessToken`. |
 | ~~Per-account multi-tenant vault namespacing~~ | High | M | **Shipped (cycle 68):** `vaultKey(channel, accountId)` namespaces credentials (`${accountId}::${channel}`); `/api/credentials`, `/api/ingest`, `/api/cron/ingest` all accept `accountId` (default: unnamespaced single-tenant account — zero-config demo unaffected). |
 | ~~Scheduled server-side ingest (cron)~~ | Med | S | **Shipped (cycle 67):** `GET /api/cron/ingest` + `vercel.json` cron (daily, 2-day trailing window), `LEVER_CRON_SECRET` bearer-token gated. |
 | ~~Connector pagination + rate-limit backoff~~ | Med | M | **Shipped (cycle 66):** google/meta/tiktok walk every page (`MAX_FETCH_PAGES`-capped); backoff shipped cycles 58–61. |
 | Sheet → engine config write-back | Low | S | Let buyers tune thresholds from the sheet. |
-
-| Sheet → engine config write-back | Low | S | Let buyers tune thresholds from the sheet. |
-
-
 
 ## 7. Guardrails (non-negotiable)
 

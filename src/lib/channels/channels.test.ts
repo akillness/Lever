@@ -8,7 +8,8 @@ import {
   fetchWithRetry,
   fetchWithTimeout,
 } from "./types";
-import { googleConnector } from "./google";
+import { googleConnector, mintGoogleAccessToken } from "./google";
+
 import { metaConnector } from "./meta";
 import { taboolaConnector } from "./taboola";
 import { tiktokConnector } from "./tiktok";
@@ -149,7 +150,70 @@ describe("google connector", () => {
     expect(rows).toHaveLength(MAX_FETCH_PAGES);
   });
 
+  it("isConfigured accepts a refresh-token trio in place of a static accessToken", () => {
+    expect(
+      googleConnector.isConfigured({ customerId: "1", developerToken: "d" }),
+    ).toBe(false);
+    expect(
+      googleConnector.isConfigured({
+        customerId: "1",
+        developerToken: "d",
+        refreshToken: "r",
+        clientId: "c",
+        clientSecret: "s",
+      }),
+    ).toBe(true);
+  });
+
+  it("mints an access token from a refresh token before calling the Ads API", async () => {
+    const calls: { url: string; init?: RequestInit }[] = [];
+    const fetcher: Fetcher = async (url, init) => {
+      calls.push({ url, init });
+      if (url.includes("oauth2.googleapis.com")) {
+        return { ok: true, status: 200, json: async () => ({ access_token: "minted-tok" }) };
+      }
+      return { ok: true, status: 200, json: async () => raw };
+    };
+    const rows = await googleConnector.fetchRows(
+      {
+        customerId: "1",
+        developerToken: "d",
+        refreshToken: "r",
+        clientId: "c",
+        clientSecret: "s",
+      },
+      RANGE,
+      fetcher,
+    );
+    expect(rows).toHaveLength(1);
+    expect(calls[0].url).toBe("https://oauth2.googleapis.com/token");
+    expect(String(calls[0].init?.body)).toContain("grant_type=refresh_token");
+    const adsHeaders = calls[1].init?.headers as Record<string, string>;
+    expect(adsHeaders.Authorization).toBe("Bearer minted-tok");
+  });
+
+  it("never calls the OAuth token endpoint when a static accessToken is present", async () => {
+    const { fetcher, calls } = stubFetcher(raw);
+    await googleConnector.fetchRows(
+      { customerId: "1", developerToken: "d", accessToken: "static-tok" },
+      RANGE,
+      fetcher,
+    );
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).not.toContain("oauth2.googleapis.com");
+  });
+  it("mintGoogleAccessToken throws when the token endpoint errors or omits access_token", async () => {
+    const denied: Fetcher = async () => ({ ok: false, status: 401, json: async () => ({}) });
+    await expect(
+      mintGoogleAccessToken({ clientId: "c", clientSecret: "s", refreshToken: "r" }, denied),
+    ).rejects.toThrow(/401/);
+    const empty: Fetcher = async () => ({ ok: true, status: 200, json: async () => ({}) });
+    await expect(
+      mintGoogleAccessToken({ clientId: "c", clientSecret: "s", refreshToken: "r" }, empty),
+    ).rejects.toThrow(/no access_token/);
+  });
 });
+
 
 
 describe("meta connector", () => {

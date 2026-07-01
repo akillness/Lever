@@ -7,7 +7,7 @@
 **Turn four fragmented ad dashboards into one ranked "do this next" list — every move shown with the math and a projected dollar impact.**
 
 [![Build](https://img.shields.io/badge/build-passing-brightgreen)](#-verify-it-yourself)
-[![Tests](https://img.shields.io/badge/tests-181%20passing-brightgreen)](src/lib/engine.test.ts)
+[![Tests](https://img.shields.io/badge/tests-185%20passing-brightgreen)](src/lib/engine.test.ts)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Deploy](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://lever-sepia.vercel.app)
@@ -67,7 +67,7 @@ Lever is the **decision brain** that sits on top of your spend:
 | Black-box "AI suggestions" | **Deterministic + explainable** — every move shows its formula |
 
 The core is an **explainable, profit-objective recommendation engine**: pure, deterministic,
-181 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
+185 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
 
 ## Quickstart
 
@@ -90,7 +90,7 @@ curl -X POST http://localhost:3000/api/analyze \
 ## 🔬 Verify it yourself
 
 ```bash
-npm test             # 181 passing — engine, metrics, confidence, storage, CSV, export, secrets vault, channel connectors, Sheets sync, ingest pipeline, API routes
+npm test             # 185 passing — engine, metrics, confidence, storage, CSV, export, secrets vault, channel connectors, Sheets sync, ingest pipeline, API routes
 npm run build        # production build + full TypeScript check
 ```
 
@@ -132,7 +132,14 @@ src/app/api/cron/ingest ← Vercel Cron entry point: same pipeline, daily 2-day 
   environment variables and `createStorage()` switches from in-memory to Firestore automatically.
 - **Live data**: free-tier channel connectors are implemented (`src/lib/channels/*`) behind the
   same `AdRow[]` contract. Seal each platform's API keys via `POST /api/credentials` (sealed with
-  AES-256-GCM under `LEVER_SECRET_KEY`, never returned over HTTP), then run `POST /api/ingest`
+  AES-256-GCM under `LEVER_SECRET_KEY`, never returned over HTTP), then run `POST /api/ingest`.
+  Google Ads also accepts a long-lived `refreshToken`+`clientId`+`clientSecret` instead of a static
+  `accessToken` — Lever mints a fresh access token from Google's OAuth2 endpoint on every call, so
+  there's no manual token rotation.
+- **Multi-tenant**: every credential write/read/delete, `/api/ingest`, and `/api/cron/ingest` accept
+  an optional `accountId`. Two tenants' credentials for the same channel are stored under
+  independent, non-colliding vault keys (`vaultKey(channel, accountId)`); omit it and everything
+  falls back to the original single-tenant account — existing zero-config deployments are unaffected.
 - **Google Sheets**: deploy `apps-script/Code.gs` as a web app, set `LEVER_SHEETS_WEBHOOK_URL` +
   `LEVER_SHEETS_TOKEN`, and every ingest upserts results into your sheet newest-first, with a
   daily maintenance trigger.
@@ -141,16 +148,13 @@ src/app/api/cron/ingest ← Vercel Cron entry point: same pipeline, daily 2-day 
   it back as `Authorization: Bearer <secret>`, checked in constant time (fails closed in
   production if unset). Override the trailing window with `?days=N` for a manual backfill.
 
-  `LEVER_SHEETS_TOKEN`, and every ingest upserts results into your sheet newest-first, with a
-  daily maintenance trigger.
-
 ## Project docs
 
 - [`docs/target-intel-itstoday.md`](docs/target-intel-itstoday.md) — the brief this was built for
 - [`docs/01-brainstorm-decision.md`](docs/01-brainstorm-decision.md) — idea & brand decision
 - [`docs/02-spec.md`](docs/02-spec.md) — product spec
 - [`docs/05-pm-roadmap.md`](docs/05-pm-roadmap.md) — PM roadmap, real-data architecture & free-tier onboarding
-- [`docs/CYCLES.md`](docs/CYCLES.md) — full build-cycle log (50 cycles)
+- [`docs/CYCLES.md`](docs/CYCLES.md) — full build-cycle log (70+ cycles)
 
 ---
 
