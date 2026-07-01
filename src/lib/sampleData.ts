@@ -34,18 +34,21 @@ export const SAMPLE_DATA: AdRow[] = [
     impressions: 410000,
     date: "2026-06-01",
   },
-  // REFRESH_CREATIVE: profitable but CTR far below Meta median.
+  // REFRESH_CREATIVE: profitable but CTR far below Meta median (ROAS held below
+  // the scale trigger on purpose — a fatigued-but-working creative should be
+  // refreshed, not scaled, until CTR recovers).
   {
     id: "m-2",
     name: "Meta · Auto Insurance — Lookalike",
     channel: "meta",
     spend: 2600,
-    revenue: 3640,
-    conversions: 91,
+    revenue: 3120,
+    conversions: 78,
     clicks: 1450,
     impressions: 520000,
     date: "2026-06-01",
   },
+
   // KEEP: healthy, near target, nothing urgent.
   {
     id: "m-3",
