@@ -3,6 +3,7 @@ import {
   type ChannelConnector,
   type DateRange,
   type Fetcher,
+  MAX_FETCH_PAGES,
   fetchWithRetry,
   hasFields,
   num,
@@ -60,8 +61,14 @@ export const metaConnector: ChannelConnector = {
   isConfigured: (creds) => hasFields(creds, REQUIRED),
 
   normalize(raw: unknown): AdRow[] {
-    const data = (raw as { data?: unknown })?.data;
-    const rows: MetaRow[] = objectRows<MetaRow>(data);
+    // Accepts either a single page ({data:[...]}) or an already-flattened
+    // array of pages accumulated across pagination.
+    const pages = Array.isArray(raw) ? raw : [raw];
+    const rows: MetaRow[] = [];
+    for (const p of pages) {
+      const data = (p as { data?: unknown })?.data;
+      rows.push(...objectRows<MetaRow>(data));
+    }
     return rows.map((row, i) => ({
       id: String(row.campaign_id ?? `meta-${i + 1}`),
       name: row.campaign_name ?? `Meta campaign ${i + 1}`,
@@ -89,11 +96,18 @@ export const metaConnector: ChannelConnector = {
       time_range: JSON.stringify({ since: range.start, until: range.end }),
       access_token: String(creds.accessToken),
     });
-    const res = await fetchWithRetry(
-      fetcher,
-      `https://graph.facebook.com/v21.0/act_${acct}/insights?${params}`,
-    );
-    if (!res.ok) throw new Error(`meta marketing API error ${res.status}`);
-    return this.normalize(await res.json());
+    // Graph API insights pages via `paging.next` — an already-authenticated,
+    // fully-qualified URL. Follow it (capped) so large accounts get every page.
+    let url: string | undefined =
+      `https://graph.facebook.com/v21.0/act_${acct}/insights?${params}`;
+    const pages: unknown[] = [];
+    for (let page = 0; page < MAX_FETCH_PAGES && url; page++) {
+      const res = await fetchWithRetry(fetcher, url);
+      if (!res.ok) throw new Error(`meta marketing API error ${res.status}`);
+      const body = (await res.json()) as { paging?: { next?: string } };
+      pages.push(body);
+      url = body.paging?.next;
+    }
+    return this.normalize(pages);
   },
 };

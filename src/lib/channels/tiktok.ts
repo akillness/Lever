@@ -3,6 +3,7 @@ import {
   type ChannelConnector,
   type DateRange,
   type Fetcher,
+  MAX_FETCH_PAGES,
   fetchWithRetry,
   hasFields,
   num,
@@ -50,8 +51,14 @@ export const tiktokConnector: ChannelConnector = {
   isConfigured: (creds) => hasFields(creds, REQUIRED),
 
   normalize(raw: unknown): AdRow[] {
-    const list = (raw as { data?: { list?: unknown } })?.data?.list;
-    const rows = objectRows<TikTokRow>(list);
+    // Accepts a single page ({data:{list:[...]}}) or an accumulated array of
+    // pages from pagination — mirrors the google/meta multi-page shape.
+    const pages = Array.isArray(raw) ? raw : [raw];
+    const rows: TikTokRow[] = [];
+    for (const p of pages) {
+      const list = (p as { data?: { list?: unknown } })?.data?.list;
+      rows.push(...objectRows<TikTokRow>(list));
+    }
     return rows.map((row, i) => {
       const m = row.metrics ?? {};
       const d = row.dimensions ?? {};
@@ -78,28 +85,40 @@ export const tiktokConnector: ChannelConnector = {
     if (!this.isConfigured(creds)) {
       throw new Error("tiktok connector is not configured");
     }
-    const params = new URLSearchParams({
-      advertiser_id: String(creds.advertiserId),
-      report_type: "BASIC",
-      data_level: "AUCTION_CAMPAIGN",
-      dimensions: JSON.stringify(["campaign_id"]),
-      metrics: JSON.stringify([
-        "campaign_name",
-        "spend",
-        "clicks",
-        "impressions",
-        "conversion",
-        ...REVENUE_KEYS,
-      ]),
-      start_date: range.start,
-      end_date: range.end,
-    });
-    const res = await fetchWithRetry(
-      fetcher,
-      `https://business-api.tiktok.com/open_api/v1.3/report/integrated/get/?${params}`,
-      { headers: { "Access-Token": String(creds.accessToken) } },
-    );
-    if (!res.ok) throw new Error(`tiktok marketing API error ${res.status}`);
-    return this.normalize(await res.json());
+    const pageSize = 1000;
+    const pages: unknown[] = [];
+    for (let page = 1; page <= MAX_FETCH_PAGES; page++) {
+      const params = new URLSearchParams({
+        advertiser_id: String(creds.advertiserId),
+        report_type: "BASIC",
+        data_level: "AUCTION_CAMPAIGN",
+        dimensions: JSON.stringify(["campaign_id"]),
+        metrics: JSON.stringify([
+          "campaign_name",
+          "spend",
+          "clicks",
+          "impressions",
+          "conversion",
+          ...REVENUE_KEYS,
+        ]),
+        start_date: range.start,
+        end_date: range.end,
+        page: String(page),
+        page_size: String(pageSize),
+      });
+      const res = await fetchWithRetry(
+        fetcher,
+        `https://business-api.tiktok.com/open_api/v1.3/report/integrated/get/?${params}`,
+        { headers: { "Access-Token": String(creds.accessToken) } },
+      );
+      if (!res.ok) throw new Error(`tiktok marketing API error ${res.status}`);
+      const body = (await res.json()) as {
+        data?: { page_info?: { page?: number; total_page?: number } };
+      };
+      pages.push(body);
+      const info = body.data?.page_info;
+      if (!info || !info.total_page || (info.page ?? page) >= info.total_page) break;
+    }
+    return this.normalize(pages);
   },
 };

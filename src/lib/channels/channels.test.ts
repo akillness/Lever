@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   FETCH_TIMEOUT_MS,
+  MAX_FETCH_PAGES,
   MAX_FETCH_RETRIES,
   RETRYABLE_STATUS,
   type Fetcher,
@@ -12,6 +13,8 @@ import { metaConnector } from "./meta";
 import { taboolaConnector } from "./taboola";
 import { tiktokConnector } from "./tiktok";
 import { allConnectors, freeTierCatalog, getConnector } from "./index";
+
+
 
 const RANGE = { start: "2026-06-01", end: "2026-06-30" };
 
@@ -96,7 +99,58 @@ describe("google connector", () => {
       ),
     ).rejects.toThrow(/403/);
   });
+
+  it("follows nextPageToken across multiple pages, capped by MAX_FETCH_PAGES", async () => {
+    const page1 = {
+      results: [{ campaign: { id: 1, name: "P1" }, metrics: { costMicros: "1000000" } }],
+      nextPageToken: "tok-2",
+    };
+    const page2 = {
+      results: [{ campaign: { id: 2, name: "P2" }, metrics: { costMicros: "2000000" } }],
+    };
+    const bodies = [page1, page2];
+    let i = 0;
+    const calls: RequestInit[] = [];
+    const fetcher: Fetcher = async (_url, init) => {
+      calls.push(init as RequestInit);
+      const body = bodies[Math.min(i, bodies.length - 1)];
+      i += 1;
+      return { ok: true, status: 200, json: async () => body };
+    };
+    const rows = await googleConnector.fetchRows(
+      { customerId: "1", developerToken: "d", accessToken: "a" },
+      RANGE,
+      fetcher,
+    );
+    expect(rows.map((r) => r.id)).toEqual(["1", "2"]);
+    expect(calls).toHaveLength(2);
+    expect(String(calls[0].body)).not.toContain("pageToken");
+    expect(String(calls[1].body)).toContain("tok-2");
+  });
+  it("never exceeds MAX_FETCH_PAGES even when nextPageToken never stops", async () => {
+    let calls = 0;
+    const fetcher: Fetcher = async () => {
+      calls += 1;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          results: [{ campaign: { id: calls, name: `P${calls}` } }],
+          nextPageToken: "always-more",
+        }),
+      };
+    };
+    const rows = await googleConnector.fetchRows(
+      { customerId: "1", developerToken: "d", accessToken: "a" },
+      RANGE,
+      fetcher,
+    );
+    expect(calls).toBe(MAX_FETCH_PAGES);
+    expect(rows).toHaveLength(MAX_FETCH_PAGES);
+  });
+
 });
+
 
 describe("meta connector", () => {
   const raw = {
@@ -140,6 +194,30 @@ describe("meta connector", () => {
     expect(calls[0].url).toContain("access_token=fbtok");
     expect(calls[0].url).toContain("level=campaign");
   });
+  it("follows paging.next cursor across pages, capped by MAX_FETCH_PAGES", async () => {
+    const page1 = {
+      data: [{ campaign_id: "c1", spend: "10", clicks: "1", impressions: "1" }],
+      paging: { next: "https://graph.facebook.com/v21.0/act_999/insights?after=cursor2" },
+    };
+    const page2 = {
+      data: [{ campaign_id: "c2", spend: "20", clicks: "2", impressions: "2" }],
+    };
+    const urls: string[] = [];
+    const fetcher: Fetcher = async (url) => {
+      urls.push(url);
+      const body = urls.length === 1 ? page1 : page2;
+      return { ok: true, status: 200, json: async () => body };
+    };
+    const rows = await metaConnector.fetchRows(
+      { accountId: "act_999", accessToken: "fbtok" },
+      RANGE,
+      fetcher,
+    );
+    expect(rows.map((r) => r.id)).toEqual(["c1", "c2"]);
+    expect(urls).toHaveLength(2);
+    expect(urls[1]).toBe("https://graph.facebook.com/v21.0/act_999/insights?after=cursor2");
+  });
+
 });
 
 describe("taboola connector", () => {
@@ -215,6 +293,37 @@ describe("tiktok connector", () => {
       impressions: 60000,
     });
   });
+
+  it("walks page_info.total_page across multiple pages", async () => {
+    const page1 = {
+      data: {
+        list: [{ dimensions: { campaign_id: "tt1" }, metrics: { spend: "1" } }],
+        page_info: { page: 1, total_page: 2 },
+      },
+    };
+    const page2 = {
+      data: {
+        list: [{ dimensions: { campaign_id: "tt2" }, metrics: { spend: "2" } }],
+        page_info: { page: 2, total_page: 2 },
+      },
+    };
+    const urls: string[] = [];
+    const fetcher: Fetcher = async (url) => {
+      urls.push(url);
+      const body = urls.length === 1 ? page1 : page2;
+      return { ok: true, status: 200, json: async () => body };
+    };
+    const rows = await tiktokConnector.fetchRows(
+      { advertiserId: "adv-7", accessToken: "tttok" },
+      RANGE,
+      fetcher,
+    );
+    expect(rows.map((r) => r.id)).toEqual(["tt1", "tt2"]);
+    expect(urls).toHaveLength(2);
+    expect(urls[0]).toContain("page=1");
+    expect(urls[1]).toContain("page=2");
+  });
+
 
   it("fetchRows sends the Access-Token header and advertiser_id", async () => {
     const { fetcher, calls } = stubFetcher(raw);

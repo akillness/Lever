@@ -3,6 +3,7 @@ import {
   type ChannelConnector,
   type DateRange,
   type Fetcher,
+  MAX_FETCH_PAGES,
   fetchWithRetry,
   hasFields,
   num,
@@ -40,7 +41,7 @@ export const googleConnector: ChannelConnector = {
   isConfigured: (creds) => hasFields(creds, REQUIRED),
 
   normalize(raw: unknown): AdRow[] {
-    // search → { results: [...] }; searchStream → [{ results: [...] }, ...].
+    // search → { results: [...] }; searchStream/paginated → [{ results: [...] }, ...].
     const batches = Array.isArray(raw) ? raw : [raw];
     const results: GoogleResult[] = [];
     for (const b of batches) {
@@ -80,12 +81,27 @@ export const googleConnector: ChannelConnector = {
     if (creds.loginCustomerId) {
       headers["login-customer-id"] = String(creds.loginCustomerId).replace(/-/g, "");
     }
-    const res = await fetchWithRetry(
-      fetcher,
-      `https://googleads.googleapis.com/v17/customers/${customerId}/googleAds:search`,
-      { method: "POST", headers, body: JSON.stringify({ query }) },
-    );
-    if (!res.ok) throw new Error(`google ads API error ${res.status}`);
-    return this.normalize(await res.json());
+    // Google Ads search paginates via a `pageToken` echoed back as
+    // `nextPageToken`; walk every page (capped) so large accounts aren't
+    // silently truncated to page one.
+    const batches: unknown[] = [];
+    let pageToken: string | undefined;
+    for (let page = 0; page < MAX_FETCH_PAGES; page++) {
+      const res = await fetchWithRetry(
+        fetcher,
+        `https://googleads.googleapis.com/v17/customers/${customerId}/googleAds:search`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ query, ...(pageToken ? { pageToken } : {}) }),
+        },
+      );
+      if (!res.ok) throw new Error(`google ads API error ${res.status}`);
+      const body = (await res.json()) as { nextPageToken?: string };
+      batches.push(body);
+      pageToken = body.nextPageToken;
+      if (!pageToken) break;
+    }
+    return this.normalize(batches);
   },
 };

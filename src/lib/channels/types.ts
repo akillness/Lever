@@ -107,6 +107,14 @@ export async function fetchWithTimeout(
 export const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 /** Default retry budget (in addition to the first attempt). */
 export const MAX_FETCH_RETRIES = 2;
+/**
+ * Safety cap on paginated fetch loops. Large accounts can return many pages;
+ * this bounds worst-case request volume per ingest so a runaway cursor (or a
+ * malformed/never-ending `next` link) cannot loop forever or hammer a
+ * free-tier quota into exhaustion.
+ */
+export const MAX_FETCH_PAGES = 20;
+
 
 export interface RetryOptions {
   /** Per-attempt timeout passed through to {@link fetchWithTimeout}. */
