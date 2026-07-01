@@ -25,7 +25,10 @@ function parseDays(raw: string | null): number {
  * GET /api/cron/ingest — scheduled entry point wired to Vercel Cron (see
  * `vercel.json`). Pulls every configured channel connector for a short
  * trailing window (default 2 days, so a daily run overlaps and never misses a
- * late-settling conversion), persists the dataset, and syncs to the Google
+ * late-settling conversion), reads back any engine-config override a PM left
+ * in the Sheet's Config tab (write-back — this unattended route has no
+ * caller to pass a `config` body, so the sheet is the only way to tune
+ * thresholds between deploys), persists the dataset, and syncs to the Google
  * Sheet — the same `runPipeline` orchestration the on-demand `/api/ingest`
  * route drives. Auth: `LEVER_CRON_SECRET` compared against the
  * `Authorization: Bearer` header Vercel Cron sends; see {@link isCronAuthorized}.
@@ -35,6 +38,7 @@ function parseDays(raw: string | null): number {
  * single-tenant unnamespaced account); register one Vercel Cron entry per
  * `path` query string to schedule several tenants independently.
  */
+
 export async function GET(request: Request) {
   if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -57,8 +61,10 @@ export async function GET(request: Request) {
       accountId: accountIdParam ?? undefined,
       ingest: { sources: out.ingest.sources, rows: out.ingest.rows.length },
       datasetId: out.dataset?.id ?? null,
+      sheetConfig: out.sheetConfig,
       sync: out.sync,
     });
+
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "cron ingest failed" },

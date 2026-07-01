@@ -82,7 +82,7 @@ select which tenant's connectors to pull.
 | ~~Per-account multi-tenant vault namespacing~~ | High | M | **Shipped (cycle 68):** `vaultKey(channel, accountId)` namespaces credentials (`${accountId}::${channel}`); `/api/credentials`, `/api/ingest`, `/api/cron/ingest` all accept `accountId` (default: unnamespaced single-tenant account — zero-config demo unaffected). |
 | ~~Scheduled server-side ingest (cron)~~ | Med | S | **Shipped (cycle 67):** `GET /api/cron/ingest` + `vercel.json` cron (daily, 2-day trailing window), `LEVER_CRON_SECRET` bearer-token gated. |
 | ~~Connector pagination + rate-limit backoff~~ | Med | M | **Shipped (cycle 66):** google/meta/tiktok walk every page (`MAX_FETCH_PAGES`-capped); backoff shipped cycles 58–61. |
-| Sheet → engine config write-back | Low | S | Let buyers tune thresholds from the sheet. |
+| ~~Sheet → engine config write-back~~ | Low | S | **Shipped (cycle 73):** an Apps Script `Config` tab (`key`\|`value` rows) a PM edits by hand, read back via `GET ?action=config` before every analyze run (`fetchSheetConfig` → `sanitizeConfig`); `PipelineOptions.sheetsConfig` toggles it (default: on when a webhook URL is set), and a caller-supplied `config` field still wins per-key over the sheet. |
 
 ## 7. Guardrails (non-negotiable)
 
@@ -116,3 +116,40 @@ The prioritization items "Connector pagination + rate-limit backoff" and
 google/meta/tiktok capped by `MAX_FETCH_PAGES`, and a Vercel Cron-triggered
 `GET /api/cron/ingest` (bearer-token gated via `LEVER_CRON_SECRET`) that runs
 the same `runPipeline` orchestration on a daily 2-day trailing window.
+
+## 9. Config write-back (shipped — cycle 73)
+
+Every item in the §6 prioritization table above is now shipped. The last one,
+Sheet → engine config write-back, closes the loop the other direction: instead
+of Lever only ever *pushing* results to the sheet, a PM can now edit engine
+thresholds (`targetRoas`, `minSpend`, `scaleStep`, ...) directly in a `Config`
+tab and have the next ingest run pick them up automatically — no redeploy, no
+API call, no engineer in the loop.
+
+- `apps-script/Code.gs`: `GET ?action=config&token=...` reads the `Config`
+  tab's `key`\|`value` rows into a plain object; same `SHEET_TOKEN` gate as
+  the POST sync endpoint.
+- `src/lib/sheets.ts`: `fetchSheetConfig()` is best-effort — a missing tab, a
+  network blip, a bad token, or a garbage value all resolve to `{}` rather
+  than throwing, so a sheet outage or a PM typo never blocks an ingest run.
+  `sanitizeConfig()` (already used for the `/api/analyze` and `/api/ingest`
+  request bodies) does double duty validating the sheet's response.
+- `src/lib/pipeline.ts`: `runPipeline` fetches the sheet config before
+  `analyze()` and merges it under any caller-supplied `config` — the sheet
+  fills in what the caller didn't explicitly set, never overrides it. Both
+  `/api/ingest` (on-demand, human-driven) and `GET /api/cron/ingest`
+  (unattended, scheduled) go through the same merge, so the cron job — which
+  has no caller to pass a `config` body — is the primary beneficiary.
+
+### Real remaining open items (not yet started)
+
+- **Real end-to-end live verification** against actual free-tier API accounts
+  (Google Ads / Meta / Taboola / TikTok) — all testing to date is at the
+  unit/mocked-fetcher level, never a live network call to the real platforms.
+- **Live persistence on Vercel:** `InMemoryStorage` is per-lambda; wire
+  `FIREBASE_PROJECT_ID`/`CLIENT_EMAIL`/`PRIVATE_KEY` for the `FirestoreStorage`
+  adapter to activate (zero code change) before demoing cross-request reload.
+- **UI persistence:** "Save snapshot" + "Saved datasets" reload buttons in the
+  product UI, so the persist/reload story is visible end-to-end (do this only
+  after Firestore is wired, else it 404s across lambdas).
+- LTV-weighted UI input; surface the engine's formulas in tooltips.

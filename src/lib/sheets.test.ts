@@ -3,13 +3,16 @@ import type { AdRow, AnalysisResult, Recommendation } from "./types";
 import type { Fetcher } from "./channels/types";
 import {
   SHEET_HEADER,
+  buildConfigUrl,
   buildSheetRows,
   buildSyncPayload,
   dedupe,
   dedupeKey,
+  fetchSheetConfig,
   pushToSheet,
   sortNewestFirst,
 } from "./sheets";
+
 
 function rec(over: Partial<Recommendation>): Recommendation {
   return {
@@ -191,5 +194,112 @@ describe("buildSyncPayload + pushToSheet", () => {
     expect(out).toEqual({ appended: 2, updated: 1 });
     expect(i).toBe(2); // one retry after the 503
     expect(delays).toEqual([1]);
+  });
+});
+
+describe("buildConfigUrl", () => {
+  it("appends action=config and an optional token", () => {
+    expect(buildConfigUrl("https://script.example/exec")).toBe(
+      "https://script.example/exec?action=config",
+    );
+    expect(buildConfigUrl("https://script.example/exec", "t")).toBe(
+      "https://script.example/exec?action=config&token=t",
+    );
+  });
+
+  it("appends with & when the webhook URL already has a query string", () => {
+    expect(buildConfigUrl("https://script.example/exec?foo=1", "t")).toBe(
+      "https://script.example/exec?foo=1&action=config&token=t",
+    );
+  });
+
+  it("puts the query string before an existing fragment rather than inside it", () => {
+    const out = buildConfigUrl("https://script.example/exec#section", "t");
+    expect(out).toBe("https://script.example/exec?action=config&token=t#section");
+  });
+
+});
+
+describe("fetchSheetConfig", () => {
+  it("returns {} immediately when no webhook URL is configured", async () => {
+    const fetcher: Fetcher = async () => {
+      throw new Error("should not be called");
+    };
+    expect(await fetchSheetConfig("", "t", fetcher)).toEqual({});
+  });
+
+  it("GETs the config URL and returns the sanitized override", async () => {
+    let captured: string | null = null;
+    const fetcher: Fetcher = async (url) => {
+      captured = url;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true, config: { targetRoas: 1.5, minSpend: 500 } }),
+      };
+    };
+    const out = await fetchSheetConfig("https://script.example/exec", "tok", fetcher);
+    expect(out).toEqual({ targetRoas: 1.5, minSpend: 500 });
+    expect(captured).toBe("https://script.example/exec?action=config&token=tok");
+  });
+
+  it("drops unknown/invalid fields via sanitizeConfig rather than passing them through", async () => {
+    const fetcher: Fetcher = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, config: { targetRoas: 1.2, notAField: 9, scaleStep: -1 } }),
+    });
+    const out = await fetchSheetConfig("https://script.example/exec", undefined, fetcher);
+    expect(out).toEqual({ targetRoas: 1.2 }); // notAField dropped, negative scaleStep dropped
+  });
+
+  it("returns {} on a non-2xx response instead of throwing", async () => {
+    const fetcher: Fetcher = async () => ({ ok: false, status: 401, json: async () => ({}) });
+    expect(
+      await fetchSheetConfig("https://script.example/exec", "bad", fetcher, { retries: 0 }),
+    ).toEqual({});
+  });
+
+  it("defaults to a single short-timeout attempt (no retries) — never adds tens of seconds to an ingest run on a hanging/retryable response", async () => {
+    let calls = 0;
+    const fetcher: Fetcher = async () => {
+      calls += 1;
+      return { ok: false, status: 503, json: async () => ({}) }; // retryable status
+    };
+    expect(await fetchSheetConfig("https://script.example/exec", "t", fetcher)).toEqual({});
+    expect(calls).toBe(1); // no retry despite 503 being retryable — unlike pushToSheet's default
+  });
+
+  it("still allows a caller to widen the retry budget via opts", async () => {
+    let calls = 0;
+    const fetcher: Fetcher = async () => {
+      calls += 1;
+      return { ok: false, status: 503, json: async () => ({}) };
+    };
+    await fetchSheetConfig("https://script.example/exec", "t", fetcher, {
+      retries: 1,
+      baseDelayMs: 1,
+      sleep: async () => {},
+    });
+    expect(calls).toBe(2);
+  });
+
+
+  it("returns {} on an explicit {ok:false} body", async () => {
+    const fetcher: Fetcher = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: false, error: "unauthorized" }),
+    });
+    expect(await fetchSheetConfig("https://script.example/exec", "bad", fetcher)).toEqual({});
+  });
+
+  it("returns {} when the fetcher throws (network error) rather than propagating", async () => {
+    const fetcher: Fetcher = async () => {
+      throw new Error("network down");
+    };
+    expect(
+      await fetchSheetConfig("https://script.example/exec", "t", fetcher, { retries: 0 }),
+    ).toEqual({});
   });
 });

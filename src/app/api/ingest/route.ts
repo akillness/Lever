@@ -21,15 +21,23 @@ function defaultRange(): DateRange {
  * POST /api/ingest — run the real-data pipeline for a reporting window:
  * pull from every configured channel connector (or analyze caller-supplied
  * rows/csv), persist the dataset, and push results to the Google Sheet.
+/**
+ * POST /api/ingest — run the real-data pipeline for a reporting window:
+ * pull from every configured channel connector (or analyze caller-supplied
+ * rows/csv), persist the dataset, and push results to the Google Sheet.
  *
  * Body: { range?: {start,end}, rows?: AdRow[], csv?: string, name?: string,
  *         config?: Partial<EngineConfig>, accountId?: string, persist?: boolean,
- *         sync?: boolean }. `accountId` selects which tenant's vault-scoped
- *         channel credentials to ingest with (default: the single-tenant
- *         unnamespaced account — see `DEFAULT_ACCOUNT_ID`).
+ *         sync?: boolean, sheetsConfig?: boolean }. `accountId` selects which
+ *         tenant's vault-scoped channel credentials to ingest with (default:
+ *         the single-tenant unnamespaced account — see `DEFAULT_ACCOUNT_ID`).
+ *         `sheetsConfig` (default: on when a Sheets webhook is configured)
+ *         reads the engine config back from the Sheet's Config tab before
+ *         analyzing; an explicit `config` field still wins per-key.
  *
  * The response carries the AnalysisResult, per-channel ingest status, the saved
- * dataset id, and the sync outcome — but never any credential values.
+ * dataset id, the sheet-config override actually applied, and the sync
+ * outcome — but never any credential values.
  */
 export async function POST(request: Request) {
   if (!isAdminAuthorized(request)) {
@@ -44,6 +52,7 @@ export async function POST(request: Request) {
     accountId?: unknown;
     persist?: boolean;
     sync?: boolean;
+    sheetsConfig?: boolean;
   };
 
   if (
@@ -72,14 +81,17 @@ export async function POST(request: Request) {
       accountId: body.accountId as string | undefined,
       persist: body.persist !== false,
       sync: body.sync,
+      sheetsConfig: body.sheetsConfig,
     });
     return NextResponse.json({
       range,
       result: out.result,
       ingest: { sources: out.ingest.sources, rows: out.ingest.rows.length },
       datasetId: out.dataset?.id ?? null,
+      sheetConfig: out.sheetConfig,
       sync: out.sync,
     });
+
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "ingest failed" },

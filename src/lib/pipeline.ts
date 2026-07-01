@@ -12,7 +12,8 @@ import { allConnectors } from "./channels";
 import type { ChannelConnector, DateRange, Fetcher, RetryOptions } from "./channels/types";
 import { DEFAULT_ACCOUNT_ID, getVault, vaultKey, type CredentialVault } from "./secrets";
 import { createStorage, type StorageAdapter, type StoredDataset } from "./storage";
-import { buildSyncPayload, pushToSheet } from "./sheets";
+import { buildSyncPayload, fetchSheetConfig, pushToSheet } from "./sheets";
+
 import type { AdRow, AnalysisResult, Channel, EngineConfig } from "./types";
 
 /** Per-channel ingest outcome, surfaced to the caller for observability. */
@@ -103,6 +104,23 @@ export interface PipelineOptions {
   sheetsToken?: string;
   /** Tune the Sheets push retry budget (timeout/retries/backoff). */
   sheetsRetry?: RetryOptions;
+  /**
+   * Tune the sheet-config-read retry budget, decoupled from `sheetsRetry`
+   * (the push, where losing data matters, keeps its own wider retry budget).
+   * Default: {@link CONFIG_FETCH_DEFAULTS} in sheets.ts — a single ~5s
+   * attempt — so a slow/hanging Config-tab read never adds tens of seconds
+   * to every ingest run.
+   */
+  sheetsConfigRetry?: RetryOptions;
+
+  /**
+   * Read the engine config back from the Sheet's Config tab before analyzing
+   * (the write-back half of the Sheets integration — a PM tunes thresholds in
+   * the sheet instead of an API call). Default: true when a webhook URL is
+   * available. A caller-supplied `config` field still wins over the sheet on
+   * a per-key basis; the sheet only fills in what the caller didn't set.
+   */
+  sheetsConfig?: boolean;
   /** Persist the ingested dataset. Default true (skipped when there are no rows). */
   persist?: boolean;
   /** Push to Sheets. Default: true when a webhook URL is available. */
@@ -114,6 +132,8 @@ export interface PipelineResult {
   dataset: StoredDataset | null;
   ingest: IngestResult;
   sync: SyncStatus;
+  /** The config read back from the Sheet's Config tab, if any (empty when not fetched/set). */
+  sheetConfig: Partial<EngineConfig>;
 }
 
 /** Orchestrate ingest → analyze → persist → sync for one reporting window. */
@@ -131,11 +151,22 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRes
     persist = true,
   } = options;
 
+  const webhookUrl =
+    options.sheetsWebhookUrl ?? process.env.LEVER_SHEETS_WEBHOOK_URL;
+  const token = options.sheetsToken ?? process.env.LEVER_SHEETS_TOKEN;
+  const shouldSync = options.sync ?? Boolean(webhookUrl);
+  const shouldFetchConfig = options.sheetsConfig ?? Boolean(webhookUrl);
+
+  const sheetConfig =
+    shouldFetchConfig && webhookUrl
+      ? await fetchSheetConfig(webhookUrl, token, fetcher, options.sheetsConfigRetry)
+      : {};
+
   const ingest: IngestResult = provided
     ? { rows: provided, sources: [] }
     : await ingestFromConnectors(range, { vault, fetcher, connectors, accountId });
 
-  const result = analyze(ingest.rows, config);
+  const result = analyze(ingest.rows, { ...sheetConfig, ...config });
 
   const store = storage ?? createStorage();
   const datasetName =
@@ -147,11 +178,6 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRes
     persist && ingest.rows.length > 0
       ? await store.saveDataset(datasetName, ingest.rows)
       : null;
-
-  const webhookUrl =
-    options.sheetsWebhookUrl ?? process.env.LEVER_SHEETS_WEBHOOK_URL;
-  const token = options.sheetsToken ?? process.env.LEVER_SHEETS_TOKEN;
-  const shouldSync = options.sync ?? Boolean(webhookUrl);
 
   let sync: SyncStatus = { attempted: false, ok: false };
   if (shouldSync && webhookUrl && ingest.rows.length > 0) {
@@ -173,5 +199,5 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRes
     }
   }
 
-  return { result, dataset, ingest, sync };
+  return { result, dataset, ingest, sync, sheetConfig };
 }

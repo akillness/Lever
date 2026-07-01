@@ -118,6 +118,9 @@ describe("runPipeline", () => {
     const calls: string[] = [];
     const fetcher: Fetcher = async (url) => {
       calls.push(url);
+      if (url.includes("action=config")) {
+        return { ok: true, status: 200, json: async () => ({ ok: true, config: {} }) };
+      }
       return { ok: true, status: 200, json: async () => ({ appended: 1, updated: 0 }) };
     };
     const out = await runPipeline({
@@ -131,7 +134,11 @@ describe("runPipeline", () => {
     });
     expect(out.ingest.rows).toEqual(gRows);
     expect(out.sync).toEqual({ attempted: true, ok: true, appended: 1, updated: 0 });
-    expect(calls).toEqual(["https://script.example/exec"]);
+    // config write-back is read before the sync push: one GET, then one POST.
+    expect(calls).toEqual([
+      "https://script.example/exec?action=config&token=tok",
+      "https://script.example/exec",
+    ]);
   });
 
   it("reports a sync failure without throwing", async () => {
@@ -156,3 +163,96 @@ describe("runPipeline", () => {
     expect(await storage.listDatasets()).toEqual([]);
   });
 });
+
+describe("runPipeline — Sheet config write-back", () => {
+  const leakRow: AdRow = {
+    id: "a",
+    name: "A",
+    channel: "google",
+    spend: 800,
+    revenue: 0,
+    conversions: 0,
+    clicks: 10,
+    impressions: 500,
+  };
+
+  function configFetcher(config: Record<string, unknown>): Fetcher {
+    return async (url) => {
+      if (url.includes("action=config")) {
+        return { ok: true, status: 200, json: async () => ({ ok: true, config }) };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    };
+  }
+
+  it("applies the sheet's config when the caller doesn't override that key", async () => {
+    const out = await runPipeline({
+      range: RANGE,
+      rows: [leakRow],
+      storage: new InMemoryStorage(),
+      fetcher: configFetcher({ minSpend: 1000 }),
+      sheetsWebhookUrl: "https://script.example/exec",
+      sync: false,
+    });
+    expect(out.sheetConfig).toEqual({ minSpend: 1000 });
+    // $800 spend is now below the sheet-raised $1000 threshold, so the row
+    // reads as insufficient signal (KEEP) instead of the default-config
+    // budget-leak PAUSE — proof the fetched config actually reached analyze().
+    expect(out.result.recommendations[0].action).toBe("KEEP");
+    expect(out.result.recommendations[0].rationale).toMatch(/\$1000 threshold/);
+  });
+
+  it("lets an explicit caller config win over the sheet on a per-key basis", async () => {
+    const out = await runPipeline({
+      range: RANGE,
+      rows: [leakRow],
+      storage: new InMemoryStorage(),
+      fetcher: configFetcher({ minSpend: 1000 }),
+      sheetsWebhookUrl: "https://script.example/exec",
+      sync: false,
+      config: { minSpend: 100 },
+    });
+    // sheetConfig still reports what the sheet held...
+    expect(out.sheetConfig).toEqual({ minSpend: 1000 });
+    // ...but the caller's explicit override is what analyze() actually used.
+    expect(out.result.recommendations[0].action).toBe("PAUSE");
+  });
+
+  it("never fetches sheet config when sheetsConfig:false, even with a webhook configured", async () => {
+    let configCalls = 0;
+    const fetcher: Fetcher = async (url) => {
+      if (url.includes("action=config")) configCalls += 1;
+      return { ok: true, status: 200, json: async () => ({}) };
+    };
+    const out = await runPipeline({
+      range: RANGE,
+      rows: [leakRow],
+      storage: new InMemoryStorage(),
+      fetcher,
+      sheetsWebhookUrl: "https://script.example/exec",
+      sheetsConfig: false,
+      sync: false,
+    });
+    expect(configCalls).toBe(0);
+    expect(out.sheetConfig).toEqual({});
+    expect(out.result.recommendations[0].action).toBe("PAUSE"); // untouched default minSpend
+  });
+
+  it("degrades to {} (default engine config) when the sheet config fetch fails", async () => {
+    const fetcher: Fetcher = async () => {
+      throw new Error("network down");
+    };
+    const out = await runPipeline({
+      range: RANGE,
+      rows: [leakRow],
+      storage: new InMemoryStorage(),
+      fetcher,
+      sheetsWebhookUrl: "https://script.example/exec",
+      sheetsRetry: { retries: 0 },
+      sync: false,
+    });
+    expect(out.sheetConfig).toEqual({});
+    expect(out.result.recommendations[0].action).toBe("PAUSE");
+  });
+});
+

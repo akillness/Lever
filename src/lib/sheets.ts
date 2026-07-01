@@ -6,8 +6,10 @@
  * The transform functions are pure (offline-testable); the network push takes
  * an injectable fetcher.
  */
-import type { AdRow, AnalysisResult, Channel, RecommendationAction } from "./types";
+import type { AdRow, AnalysisResult, Channel, EngineConfig, RecommendationAction } from "./types";
 import { fetchWithRetry, type Fetcher, type RetryOptions } from "./channels/types";
+import { sanitizeConfig } from "./configInput";
+
 
 /** One spreadsheet row: a campaign's metrics + the engine's verdict. */
 export interface SheetRow {
@@ -158,4 +160,69 @@ export async function pushToSheet(
 /** True when a Sheets web app URL is configured. */
 export function hasSheetsConfig(): boolean {
   return Boolean(process.env.LEVER_SHEETS_WEBHOOK_URL);
+}
+
+/**
+ * Build the Apps Script GET URL that reads back the Config tab. Uses the URL
+ * API so the query string is appended before any fragment (`#...`) rather
+ * than inside it — a naive string-concat would silently drop `action`/`token`
+ * from the request if a webhook URL ever carried a fragment. Falls back to a
+ * simple concat for a relative/malformed URL that `URL` can't parse (Apps
+ * Script deployment URLs are always absolute in practice, so this path is
+ * defensive, not expected to trigger).
+ */
+export function buildConfigUrl(webhookUrl: string, token?: string): string {
+  try {
+    const u = new URL(webhookUrl);
+    u.searchParams.set("action", "config");
+    if (token) u.searchParams.set("token", token);
+    return u.toString();
+  } catch {
+    const params = new URLSearchParams({ action: "config" });
+    if (token) params.set("token", token);
+    const sep = webhookUrl.includes("?") ? "&" : "?";
+    return `${webhookUrl}${sep}${params.toString()}`;
+  }
+}
+
+/**
+ * A config read is best-effort and non-critical (unlike the sync push, which
+ * really shouldn't lose data) — default to a single short-timeout attempt
+ * rather than {@link fetchWithRetry}'s normal 3-attempt/15s-per-attempt
+ * budget, so a slow or hanging Apps Script response can't add tens of
+ * seconds of latency to every ingest run. Callers that want more resilience
+ * here can still pass a wider `opts`.
+ */
+const CONFIG_FETCH_DEFAULTS: RetryOptions = { retries: 0, timeoutMs: 5000 };
+
+/**
+ * Read the engine config the PM edits directly in the Sheet's Config tab
+ * back into Lever — the write-back half of the Sheets integration (the push
+ * side is {@link pushToSheet}). Best-effort and never throws: any failure
+ * (no URL configured, network error, non-2xx, `{ok:false}`, or a response
+ * that isn't valid config) resolves to `{}` so a Sheet outage or a PM typo
+ * never blocks or corrupts an ingest run — {@link sanitizeConfig} also drops
+ * any non-numeric/out-of-range field individually rather than rejecting the
+ * whole response. Timeout-bounded via {@link fetchWithRetry}, defaulting to
+ * a single 5s attempt (see {@link CONFIG_FETCH_DEFAULTS}).
+ */
+export async function fetchSheetConfig(
+  webhookUrl: string,
+  token?: string,
+  fetcher: Fetcher = fetch,
+  opts: RetryOptions = {},
+): Promise<Partial<EngineConfig>> {
+  if (!webhookUrl) return {};
+  try {
+    const res = await fetchWithRetry(fetcher, buildConfigUrl(webhookUrl, token), {}, {
+      ...CONFIG_FETCH_DEFAULTS,
+      ...opts,
+    });
+    if (!res.ok) return {};
+    const body = (await res.json()) as { ok?: boolean; config?: unknown };
+    if (!body || body.ok === false) return {};
+    return sanitizeConfig(body.config);
+  } catch {
+    return {};
+  }
 }

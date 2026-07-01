@@ -8,15 +8,21 @@
  *     in place; new rows are inserted directly under the header (newest-first).
  *   - A time-driven trigger keeps the sheet sorted newest-first and trims to a
  *     retention cap so the tab never grows unbounded.
+ * Also serves config write-back: a `Config` tab (key/value columns) a PM edits
+ * by hand, read back via `GET ?action=config` before every Lever ingest run
+ * (see {@link readConfig_}) — no redeploy needed to tune the engine.
  *
  * Setup:
  *   1. Extensions → Apps Script in your target spreadsheet; paste this file.
  *   2. Project Settings → Script Properties: set SHEET_TOKEN (a shared secret)
- *      and optionally SHEET_NAME (default "Lever") / RETENTION_ROWS (default 5000).
+ *      and optionally SHEET_NAME (default "Lever") / RETENTION_ROWS (default
+ *      5000) / CONFIG_SHEET_NAME (default "Config").
  *   3. Deploy → New deployment → Web app → Execute as: Me, Access: Anyone.
  *   4. Put the web app URL in Lever's LEVER_SHEETS_WEBHOOK_URL and the same
  *      secret in LEVER_SHEETS_TOKEN.
  *   5. Run installTrigger() once to schedule daily maintenance.
+ *   6. Optional: add a "Config" tab with header row `key | value` and rows
+ *      like `targetRoas | 1.2` to override engine thresholds without a deploy.
  */
 
 var KEY_COLUMNS = ["date", "channel", "entityId"];
@@ -64,11 +70,55 @@ function rowKey_(header, values) {
   }).join("|");
 }
 
-/** GET → health probe. */
-function doGet() {
-  return ContentService.createTextOutput(
-    JSON.stringify({ ok: true, sheet: sheetName_() })
-  ).setMimeType(ContentService.MimeType.JSON);
+/**
+ * GET → health probe by default, or `?action=config&token=...` to read back
+ * the engine config a PM edits directly in the Config tab (key/value columns,
+ * header row + one row per {@link EngineConfig} field — see {@link readConfig_}).
+ * This is the write-back half of the Sheets integration: Lever's pipeline
+ * pulls this before every ingest run so a threshold change in the sheet takes
+ * effect on the next run with no deploy. Token-gated the same way `doPost` is
+ * when SHEET_TOKEN is set, since config values are legitimately sensitive
+ * (they tune what gets paused/scaled).
+ */
+function doGet(e) {
+  var action = e && e.parameter ? e.parameter.action : undefined;
+  if (action === "config") {
+    var expected = props_().getProperty("SHEET_TOKEN");
+    var got = (e.parameter && e.parameter.token) || "";
+    if (expected && !safeEqual_(String(got), expected)) {
+      return json_({ ok: false, error: "unauthorized" });
+    }
+    return json_({ ok: true, config: readConfig_() });
+  }
+  return json_({ ok: true, sheet: sheetName_() });
+}
+
+function configSheetName_() {
+  return props_().getProperty("CONFIG_SHEET_NAME") || "Config";
+}
+
+/**
+ * Read the Config tab's key/value rows (row 1 = header, "key" | "value" from
+ * row 2 down) into a plain object of numeric overrides. Missing tab, blank
+ * key, or a non-numeric value are all skipped rather than erroring — Lever's
+ * `sanitizeConfig` further validates each key against the real EngineConfig
+ * shape, so a typo'd row or an out-of-range number is silently dropped there,
+ * never crashes an ingest run.
+ */
+function readConfig_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(configSheetName_());
+  if (!sheet || sheet.getLastRow() < 2) return {};
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
+  var config = {};
+  for (var i = 0; i < values.length; i++) {
+    var key = String(values[i][0] || "").trim();
+    var raw = values[i][1];
+    if (!key || raw === "" || raw === null || raw === undefined) continue;
+    var num = Number(raw);
+    if (!isNaN(num)) config[key] = num;
+  }
+  return config;
 }
 
 /** POST → upsert a payload of { header, rows, token }. */

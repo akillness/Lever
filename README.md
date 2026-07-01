@@ -7,7 +7,7 @@
 **Turn four fragmented ad dashboards into one ranked "do this next" list — every move shown with the math and a projected dollar impact.**
 
 [![Build](https://img.shields.io/badge/build-passing-brightgreen)](#-verify-it-yourself)
-[![Tests](https://img.shields.io/badge/tests-185%20passing-brightgreen)](src/lib/engine.test.ts)
+[![Tests](https://img.shields.io/badge/tests-200%20passing-brightgreen)](src/lib/engine.test.ts)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Deploy](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://lever-sepia.vercel.app)
@@ -67,7 +67,7 @@ Lever is the **decision brain** that sits on top of your spend:
 | Black-box "AI suggestions" | **Deterministic + explainable** — every move shows its formula |
 
 The core is an **explainable, profit-objective recommendation engine**: pure, deterministic,
-185 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
+200 unit tests, with a clean seam to attach an LLM for richer natural-language rationales.
 
 ## Quickstart
 
@@ -90,7 +90,7 @@ curl -X POST http://localhost:3000/api/analyze \
 ## 🔬 Verify it yourself
 
 ```bash
-npm test             # 185 passing — engine, metrics, confidence, storage, CSV, export, secrets vault, channel connectors, Sheets sync, ingest pipeline, API routes
+npm test             # 200 passing — engine, metrics, confidence, storage, CSV, export, secrets vault, channel connectors, Sheets sync, ingest pipeline, API routes
 npm run build        # production build + full TypeScript check
 ```
 
@@ -143,6 +143,10 @@ src/app/api/cron/ingest ← Vercel Cron entry point: same pipeline, daily 2-day 
 - **Google Sheets**: deploy `apps-script/Code.gs` as a web app, set `LEVER_SHEETS_WEBHOOK_URL` +
   `LEVER_SHEETS_TOKEN`, and every ingest upserts results into your sheet newest-first, with a
   daily maintenance trigger.
+- **Config write-back**: add a `Config` tab (`key`/`value` rows) to the same sheet and edit engine
+  thresholds (`targetRoas`, `minSpend`, `scaleStep`, ...) by hand — the next ingest run reads them
+  back automatically (`GET ?action=config`), no redeploy or API call needed. A caller-supplied
+  `config` still wins per-key over the sheet.
 - **Hands-off scheduling**: `vercel.json` registers a daily Vercel Cron hitting
   `GET /api/cron/ingest` — no manual trigger needed. Set `LEVER_CRON_SECRET`; Vercel Cron sends
   it back as `Authorization: Bearer <secret>`, checked in constant time (fails closed in
@@ -154,7 +158,7 @@ src/app/api/cron/ingest ← Vercel Cron entry point: same pipeline, daily 2-day 
 - [`docs/01-brainstorm-decision.md`](docs/01-brainstorm-decision.md) — idea & brand decision
 - [`docs/02-spec.md`](docs/02-spec.md) — product spec
 - [`docs/05-pm-roadmap.md`](docs/05-pm-roadmap.md) — PM roadmap, real-data architecture & free-tier onboarding
-- [`docs/CYCLES.md`](docs/CYCLES.md) — full build-cycle log (70+ cycles)
+- [`docs/CYCLES.md`](docs/CYCLES.md) — full build-cycle log (73+ cycles)
 
 ---
 
